@@ -247,7 +247,7 @@ fn markdown_inline_code_uses_the_reading_palette() {
 }
 
 #[test]
-fn commands_render_directly_until_multiple_calls_share_a_group() {
+fn failed_commands_share_activity_with_surrounding_calls() {
     use serde_json::json;
 
     let mut state = conversation::ConversationState::default();
@@ -267,34 +267,14 @@ fn commands_render_directly_until_multiple_calls_share_a_group() {
         }));
     }
     let rows = project_rows(&state.items);
-    assert_eq!(rows.len(), 3);
-    for index in 0..3 {
-        assert!(
-            matches!(rows[index], TranscriptRow::Item { index: actual, .. } if actual == index)
-        );
-    }
-    let previous = state.items.clone();
-    let mut completed = state.items[1].as_ref().clone();
-    completed.is_error = false;
-    Arc::make_mut(
-        completed
-            .tool_details
-            .as_mut()
-            .expect("test operation should succeed"),
-    )
-    .state = conversation::ToolExecutionState::Succeeded;
-    state.items.set(1, Arc::new(completed));
-    let grouped = update_rows_from(&rows, &previous, &state.items, Some(1));
-    assert_eq!(grouped, project_rows(&state.items));
+    assert_eq!(rows.len(), 1);
     assert!(matches!(
-        grouped[0],
-        TranscriptRow::ActivityGroup { len: 3, .. }
-    ));
-    assert_eq!(grouped.len(), 1);
-    assert!(resolved_expanded(
-        grouped[0],
-        &state.items,
-        &std::collections::HashMap::from([(0, true)])
+        rows[0],
+        TranscriptRow::ActivityGroup {
+            start: 0,
+            len: 3,
+            ..
+        }
     ));
 }
 
@@ -658,7 +638,7 @@ fn completed_native_reads_and_searches_share_activity() {
 }
 
 #[test]
-fn failed_native_reads_remain_visible_with_details() {
+fn failed_native_reads_share_activity() {
     let mut state = conversation::ConversationState::default();
     for id in ["ok", "failed"] {
         state.reduce(&serde_json::json!({"type":"tool_execution_start", "toolCallId":id,
@@ -669,9 +649,15 @@ fn failed_native_reads_remain_visible_with_details() {
         );
     }
     let rows = project_rows(&state.items);
-    assert_eq!(rows.len(), 2);
-    assert!(matches!(rows[0], TranscriptRow::Item { index: 0, .. }));
-    assert!(matches!(rows[1], TranscriptRow::Item { index: 1, .. }));
+    assert_eq!(rows.len(), 1);
+    assert!(matches!(
+        rows[0],
+        TranscriptRow::ActivityGroup {
+            start: 0,
+            len: 2,
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -758,7 +744,7 @@ fn tool_rows_are_collapsed_by_default_even_while_running_or_failed() {
     let items = vec![successful_mutation, running, failed];
     let rows = project_rows(&items);
 
-    assert_eq!(rows.len(), 2);
+    assert_eq!(rows.len(), 1);
     for row in rows.iter() {
         assert!(!expanded_by_default(*row, &items));
     }
@@ -870,7 +856,7 @@ fn transcript_copy_keeps_pasted_file_links() {
 }
 
 #[test]
-fn activity_groups_keep_thinking_inside_and_attention_outside() {
+fn activity_groups_include_thinking_failures_and_approvals() {
     use crate::conversation::{ToolReview, ToolReviewState};
     let mut running = item(TranscriptKind::Tool, "Bash", "Command: sleep 1");
     Arc::make_mut(&mut running).streaming = true;
@@ -892,19 +878,17 @@ fn activity_groups_keep_thinking_inside_and_attention_outside() {
         item(TranscriptKind::Tool, "Read", "Path: two"),
     ];
     let rows = project_rows(&items);
-    assert_eq!(rows.len(), 5);
+    assert_eq!(rows.len(), 3);
     assert!(matches!(
         rows[0],
         TranscriptRow::ActivityGroup {
             start: 0,
-            len: 4,
+            len: 6,
             ..
         }
     ));
-    for (row, index) in rows.iter().skip(1).take(3).zip(4..7) {
-        assert!(matches!(row, TranscriptRow::Item { index: actual, .. } if *actual == index));
-    }
-    assert!(matches!(rows[4], TranscriptRow::Item { index: 7, .. }));
+    assert!(matches!(rows[1], TranscriptRow::Item { index: 6, .. }));
+    assert!(matches!(rows[2], TranscriptRow::Item { index: 7, .. }));
 }
 
 #[test]
@@ -926,15 +910,17 @@ fn file_activity_never_crosses_a_message_or_session_notice() {
 }
 
 #[test]
-fn completing_a_tool_merges_activity_without_losing_disclosure_identity() {
+fn failed_tool_completion_keeps_activity_and_disclosure_identity() {
     let mut running = item(TranscriptKind::Tool, "Bash", "Command: opaque");
     Arc::make_mut(&mut running).streaming = true;
     let previous = vec![item(TranscriptKind::Thinking, "", "Working"), running];
     let previous_rows = project_rows(&previous);
     let mut items = previous.clone();
     Arc::make_mut(&mut items[1]).streaming = false;
+    Arc::make_mut(&mut items[1]).is_error = true;
     let rows = update_rows_from(&previous_rows, &previous, &items, Some(1));
     assert_eq!(rows, project_rows(&items));
+    assert!(rows[0].same_position(&previous_rows[0]));
     assert!(matches!(
         rows[0],
         TranscriptRow::ActivityGroup { len: 2, .. }
@@ -1009,25 +995,34 @@ fn selecting_an_activity_row_copies_every_call_and_thought_in_order() {
 }
 
 #[test]
-fn tool_completion_and_late_metadata_invalidate_the_actual_earlier_row() {
+fn tool_completion_metadata_and_approvals_refresh_the_existing_group() {
     use serde_json::json;
     let mut conversation = conversation::ConversationState::default();
     for id in ["first", "second"] {
         conversation.reduce(&json!({"type":"tool_execution_start", "toolCallId":id, "toolName":"bash", "args":{"command":"true"}}));
     }
-    let before = conversation.items.clone();
-    let before_rows = project_rows(&before);
-    let changed = conversation.reduce(&json!({"type":"tool_execution_end", "toolCallId":"first", "result":{"content":[]}, "isError":false}));
-    assert_eq!(changed, Some(0));
-    let rows = update_rows_from(&before_rows, &before, &conversation.items, changed);
-    assert_eq!(rows, project_rows(&conversation.items));
-    let changed = conversation.reduce(&json!({"type":"tool_metadata_changed", "toolCallId":"first", "toolMetadata":{"category":"execute","title":"Finished tests"}}));
-    assert_eq!(changed, Some(0));
-    let changed = conversation
-        .reduce(&json!({"type":"tool_review_changed", "toolCallId":"first", "state":"blocked"}));
-    assert_eq!(changed, Some(0));
-    let changed = conversation.reduce(&json!({"type":"message_end", "message":{"role":"toolResult", "toolCallId":"first", "content":[], "isError":false}}));
-    assert_eq!(changed, Some(0));
+    let mut rows = project_rows(&conversation.items);
+    let group = rows[0];
+    let disclosure = std::collections::HashMap::from([(group.disclosure_key(), true)]);
+    for event in [
+        json!({"type":"tool_execution_end", "toolCallId":"first", "result":{"content":[]}, "isError":false}),
+        json!({"type":"tool_metadata_changed", "toolCallId":"first", "toolMetadata":{"category":"execute","title":"Finished tests"}}),
+        json!({"type":"tool_review_changed", "toolCallId":"first", "state":"reviewing"}),
+        json!({"type":"tool_review_changed", "toolCallId":"first", "state":"blocked"}),
+        json!({"type":"tool_review_changed", "toolCallId":"first", "state":"approved"}),
+        json!({"type":"message_end", "message":{"role":"toolResult", "toolCallId":"first", "content":[], "isError":false}}),
+    ] {
+        let before = conversation.items.clone();
+        let previous_row = rows[0];
+        let changed = conversation.reduce(&event);
+        assert_eq!(changed, Some(0));
+        rows = update_rows_from(&rows, &before, &conversation.items, changed);
+        assert_eq!(rows, project_rows(&conversation.items));
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].same_position(&group));
+        assert_ne!(rows[0], previous_row);
+        assert!(resolved_expanded(rows[0], &conversation.items, &disclosure));
+    }
 }
 #[test]
 fn long_inline_images_and_distant_reference_definitions_survive_chunks() {

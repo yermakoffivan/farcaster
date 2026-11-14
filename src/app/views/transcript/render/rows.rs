@@ -700,17 +700,6 @@ fn text_revision(text: &str) -> usize {
 }
 
 fn is_groupable_activity(item: &TranscriptItem) -> bool {
-    use conversation::{ToolExecutionState, ToolReviewState};
     matches!(item.kind, TranscriptKind::Tool | TranscriptKind::Thinking)
         && review_artifact::from_item(item).is_none()
-        && !item.tool_review.as_ref().is_some_and(|review| {
-            matches!(
-                review.state,
-                ToolReviewState::Reviewing | ToolReviewState::Blocked
-            )
-        })
-        && !matches!(
-            item.tool_execution_state(),
-            Some(ToolExecutionState::Failed)
-        )
 }
