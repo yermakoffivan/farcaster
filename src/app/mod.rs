@@ -181,7 +181,7 @@ struct SessionTitleEdit {
 #[derive(Clone)]
 pub(crate) struct ImagePreview {
     pub(crate) image: Arc<Image>,
-    pub(crate) rendered: Arc<gpui::RenderImage>,
+    pub(in crate::app) viewport: Entity<views::dialogs::image_preview::ImageViewport>,
     pub(crate) index: usize,
     pub(crate) total: usize,
 }

@@ -1,6 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
-use gpui::{Context, FocusHandle, Focusable as _, Image, RenderImage, Window, actions};
+use gpui::{
+    AppContext as _, Context, FocusHandle, Focusable as _, Image, RenderImage, Window, actions,
+};
 
 use super::covered_refresh::{CoveredRefresh, RefreshStep};
 use super::{AppSurface, FarcasterApp, ImagePreview, PostRenderFocus};
@@ -1233,9 +1235,12 @@ impl FarcasterApp {
                     this.overlays.image_preview_return_focus = window.focused(cx);
                 }
                 this.cover_native_workspace_surface(cx);
+                let viewport = cx.new(|_| {
+                    crate::app::views::dialogs::image_preview::ImageViewport::new(rendered)
+                });
                 this.overlays.image_preview = Some(ImagePreview {
                     image,
-                    rendered,
+                    viewport,
                     index,
                     total,
                 });

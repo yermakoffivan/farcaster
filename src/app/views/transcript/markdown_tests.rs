@@ -87,6 +87,32 @@ fn inline_images_and_list_images_keep_their_surrounding_structure() {
     assert!(rendered.ends_with("```md\nCaption:\n![example](example.png)\n```"));
 }
 
+#[test]
+fn markdown_image_previews_shrink_large_images_without_enlarging_small_ones() {
+    let directory = tempfile::tempdir().unwrap();
+    for (width, height, preview_width, preview_height) in [
+        (32, 16, 32, 16),
+        (160, 80, 160, 80),
+        (1, 1, 1, 1),
+        (640, 160, 320, 80),
+        (160, 960, 80, 480),
+    ] {
+        let path = directory.path().join(format!("{width}x{height}.png"));
+        image::DynamicImage::new_rgb8(width, height)
+            .save(&path)
+            .unwrap();
+        let source = format!("![preview]({})", path.display());
+        let rendered = super::clickable_images(&source);
+        assert!(
+            rendered.contains(&format!(
+                "width=\"{preview_width}\" height=\"{preview_height}\""
+            )),
+            "unexpected bounds for {width}x{height}: {rendered}"
+        );
+        assert!(rendered.contains(&format!("](<{}>)", path.display())));
+    }
+}
+
 #[gpui::test]
 fn wide_screenshot_preview_uses_its_aspect_ratio(cx: &mut gpui::TestAppContext) {
     use gpui::{

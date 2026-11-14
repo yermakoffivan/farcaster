@@ -195,7 +195,7 @@ pub(super) fn image_thumbnail(
             img(image)
                 .w_full()
                 .h(theme().size(100.0))
-                .object_fit(ObjectFit::Contain),
+                .object_fit(ObjectFit::ScaleDown),
         )
         .child(div().w_full().line_clamp(2).text_ellipsis().child(caption))
         .on_click(move |_, window, cx| {

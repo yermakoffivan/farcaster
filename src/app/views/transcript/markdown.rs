@@ -211,7 +211,9 @@ pub(super) fn clickable_images(source: &str) -> Cow<'_, str> {
             // transcript rows have stable bounds from their first frame.
             let bounds = crate::app::workspace::files::image_preview_dimensions(url)
                 .map(|(width, height)| {
-                    let scale = (320.0 / f64::from(width)).min(480.0 / f64::from(height));
+                    let scale = (320.0 / f64::from(width))
+                        .min(480.0 / f64::from(height))
+                        .min(1.0);
                     format!(
                         "width=\"{}\" height=\"{}\"",
                         (f64::from(width) * scale).round().max(1.0) as u32,
