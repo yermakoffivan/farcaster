@@ -15,7 +15,7 @@ pub(super) fn render(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> An
             .items_center()
             .justify_between()
             .gap(theme().space.sm)
-            .child(setting_label("Harness profiles", ""))
+            .child(setting_label("Harness profiles", "Separate commands and data directories for agent connections. Worker profiles choose the model and effort."))
             .child(
                 settings_control(
                     "toggle-harness-profile-form",
@@ -24,6 +24,9 @@ pub(super) fn render(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> An
                 )
                 .debug_selector(|| "toggle-harness-profile-form".into())
                 .aria_expanded(adding)
+                .w_auto()
+                .px(theme().space.sm)
+                .child(if adding { "Close form" } else { "Add profile" })
                 .child(app_icon(
                     if adding { AppIcon::X } else { AppIcon::Plus },
                     AppIconSize::Control,
@@ -37,6 +40,7 @@ pub(super) fn render(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> An
                 }),
             ),
     );
+    let empty = profiles.is_empty();
     let mut list = div()
         .id("harness-profile-list")
         .max_h(theme().size(180.0))
@@ -93,7 +97,15 @@ pub(super) fn render(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> An
                 )),
         );
     }
-    content = content.child(list);
+    content = content
+        .when(empty && !adding, |content| {
+            content.child(
+                div()
+                    .text_color(theme().colors.muted)
+                    .child("No connection profiles yet."),
+            )
+        })
+        .when(!empty, |content| content.child(list));
     if adding {
         content = content.child(add_form(app, entity));
     }
@@ -122,9 +134,9 @@ fn add_form(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyElement 
                 crate::agents::backend_display_name(backend),
                 ButtonTone::Quiet,
                 true,
-                move |_, cx| {
+                move |window, cx| {
                     let _ = select.update(cx, |this, cx| {
-                        this.choose_harness_profile_backend(backend, cx)
+                        this.choose_harness_profile_backend(backend, window, cx)
                     });
                 },
             )
@@ -163,10 +175,10 @@ fn add_form(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyElement 
                 ))
             },
         )
-        .child(div().flex().justify_end().child(settings_action(
+        .child(div().flex().justify_end().child(button(
             "add-harness-profile",
-            "Add harness profile",
-            AppIcon::Check,
+            "Add profile",
+            ButtonTone::Accent,
             true,
             move |window, cx| {
                 let _ = entity.update(cx, |this, cx| this.add_harness_profile(window, cx));

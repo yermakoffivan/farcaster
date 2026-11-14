@@ -17,9 +17,7 @@ use super::{
 use crate::{
     app::FarcasterApp,
     app::ui::assets::AppIcon,
-    app::ui::primitives::{
-        AppIconSize, ButtonTone, FeedbackTone, app_icon, button, feedback, sidebar_heading,
-    },
+    app::ui::primitives::{AppIconSize, ButtonTone, app_icon, button, sidebar_heading},
     app::ui::theme::theme,
 };
 use workgraph::load_plan;
@@ -125,7 +123,6 @@ impl WorkGraphSidebarView {
         let Some(session_id) = self.session_id.clone() else {
             return;
         };
-        let notify_loading = prepare_refresh(&mut self.state);
         let store = self.store.clone();
         let project = self.project.clone();
         let key = (project.clone(), session_id.clone());
@@ -160,18 +157,7 @@ impl WorkGraphSidebarView {
                 }
             });
         }));
-        if notify_loading {
-            cx.notify();
-        }
     }
-}
-
-fn prepare_refresh(state: &mut PlanLoadState) -> bool {
-    if matches!(state, PlanLoadState::Ready(_) | PlanLoadState::Loading) {
-        return false;
-    }
-    *state = PlanLoadState::Loading;
-    true
 }
 
 impl Render for WorkGraphSidebarView {
@@ -190,7 +176,7 @@ impl Render for WorkGraphSidebarView {
                     .then(|| format!("Plan · {title}"))
                 })
                 .unwrap_or_else(|| "Plan".into()),
-            PlanLoadState::Loading | PlanLoadState::Failed(_) => "Plan".into(),
+            PlanLoadState::Failed(_) => "Plan".into(),
         };
         let header = div()
             .flex()
@@ -215,12 +201,6 @@ impl Render for WorkGraphSidebarView {
                         sidebar.child(render_session_goal(goal, true))
                     })
                     .child(match &self.state {
-                        PlanLoadState::Loading => feedback(
-                            "workgraph-sidebar-loading",
-                            "Loading plan…",
-                            FeedbackTone::Info,
-                        )
-                        .into_any_element(),
                         PlanLoadState::Failed(_) => div()
                             .flex()
                             .items_center()

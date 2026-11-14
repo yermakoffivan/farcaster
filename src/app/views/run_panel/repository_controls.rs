@@ -165,10 +165,12 @@ pub(super) fn repository_header(
                     .items_center()
                     .gap(theme().space.sm)
                     .text_size(theme().type_scale.caption)
-                    .child(working_copy_totals(
-                        app.project.repository.additions,
-                        app.project.repository.deletions,
-                    ))
+                    .when(count > 0, |row| {
+                        row.child(working_copy_totals(
+                            app.project.repository.additions,
+                            app.project.repository.deletions,
+                        ))
+                    })
                     .child(div().flex_1())
                     .child(
                         div()

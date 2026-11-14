@@ -47,13 +47,13 @@ pub(super) fn create(
             .placeholder("micro -softwrap true")
             .default_value(saved_editor_command)
     });
-    let harness_profile_name =
-        cx.new(|cx| InputState::new(window, cx).placeholder("Name, e.g. Claudex"));
-    let harness_profile_executable = cx.new(|cx| {
-        InputState::new(window, cx).placeholder("Command or absolute path, e.g. claudex")
-    });
+    let harness_profile_name = cx.new(|cx| InputState::new(window, cx).placeholder("Profile name"));
+    let harness_profile_executable =
+        cx.new(|cx| InputState::new(window, cx).placeholder("Command or absolute path"));
     let harness_profile_data_directory = cx.new(|cx| {
-        InputState::new(window, cx).placeholder("Optional data directory, e.g. ~/.codex2")
+        InputState::new(window, cx).placeholder(
+            FarcasterApp::harness_profile_directory_placeholder(crate::agents::Backend::Claude),
+        )
     });
     let dialog = cx.new(|cx| {
         TextareaState::new(window, cx)

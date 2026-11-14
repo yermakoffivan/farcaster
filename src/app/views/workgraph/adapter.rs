@@ -46,6 +46,7 @@ pub(crate) struct WorkGraphBoardView {
     create_title: Entity<InputState>,
     create_detail: Entity<TextareaState>,
     refresh: Option<Task<()>>,
+    editing: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -58,7 +59,7 @@ impl WorkGraphBoardView {
         cx: &mut Context<Self>,
     ) -> Self {
         let state = match &store {
-            Ok(_) => PlanLoadState::Loading,
+            Ok(store) => read_plan(store, &project, None, None),
             Err(error) => PlanLoadState::Failed(error.clone()),
         };
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
@@ -90,8 +91,7 @@ impl WorkGraphBoardView {
                 }
             }),
         ];
-        let should_refresh = matches!(state, PlanLoadState::Loading);
-        let mut view = Self {
+        let view = Self {
             app,
             store,
             project,
@@ -108,11 +108,9 @@ impl WorkGraphBoardView {
             create_title,
             create_detail,
             refresh: None,
+            editing: false,
             _subscriptions: subscriptions,
         };
-        if should_refresh {
-            view.refresh(cx);
-        }
         view
     }
 
@@ -128,7 +126,17 @@ impl WorkGraphBoardView {
             self.all_plans = false;
             self.selected = None;
             self.catalog = catalog::CatalogState::default();
-            self.state = PlanLoadState::Loading;
+            self.refresh = None;
+            self.editing = false;
+            self.state = match &self.store {
+                Ok(store) => read_plan(
+                    store,
+                    &project,
+                    active_session.as_ref().map(|(id, _)| id.as_str()),
+                    None,
+                ),
+                Err(error) => PlanLoadState::Failed(error.clone()),
+            };
             self.session_goal = None;
         }
         self.project = project;
@@ -159,6 +167,9 @@ impl WorkGraphBoardView {
     }
 
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
+        if self.editing {
+            return;
+        }
         let store = self.store.clone();
         let project = self.project.clone();
         let session_id = self.active_session.as_ref().map(|(id, _)| id.clone());
@@ -243,8 +254,17 @@ impl WorkGraphBoardView {
         self.plan = Some(plan);
         self.all_plans = false;
         self.reset_navigation(window, cx);
-        self.state = PlanLoadState::Loading;
-        self.refresh(cx);
+        self.refresh = None;
+        self.state = match &self.store {
+            Ok(store) => read_plan(
+                store,
+                &self.project,
+                self.active_session.as_ref().map(|(id, _)| id.as_str()),
+                self.plan,
+            ),
+            Err(error) => PlanLoadState::Failed(error.clone()),
+        };
+        cx.notify();
     }
 
     pub(crate) fn focus_search(&self, window: &mut Window, cx: &mut Context<Self>) {
@@ -296,6 +316,9 @@ impl WorkGraphBoardView {
     }
 
     pub(super) fn link_active_session(&mut self, walk: u64, cx: &mut Context<Self>) {
+        if self.editing {
+            return;
+        }
         let Some((session_id, session_path)) = self.active_session.clone() else {
             return;
         };
@@ -308,13 +331,14 @@ impl WorkGraphBoardView {
                 })
             })
         });
-        self.state = PlanLoadState::Loading;
+        self.editing = true;
         self.refresh = Some(cx.spawn(async move |weak, cx| {
             let (state, changed) = match edit.await {
                 Ok(data) => (PlanLoadState::Ready(Box::new(data)), true),
                 Err(error) => (PlanLoadState::Failed(error), false),
             };
             let _ = weak.update(cx, |this, cx| {
+                this.editing = false;
                 this.state = state;
                 if changed {
                     this.refresh_sidebar_after_edit(cx);
@@ -331,10 +355,6 @@ impl WorkGraphBoardView {
         let entity = cx.entity();
         let notice = match &self.state {
             PlanLoadState::Ready(data) => return self.render_ready(data, entity, layout, cx),
-            PlanLoadState::Loading => {
-                feedback("workgraph-loading", "Loading plan…", FeedbackTone::Info)
-                    .into_any_element()
-            }
             PlanLoadState::Failed(error) => render_load_error(error, entity),
         };
         div()
@@ -580,3 +600,25 @@ impl Render for WorkGraphBoardView {
             .child(self.render_state(layout, cx))
     }
 }
+
+// Initial navigation reads the local snapshot before showing the view. Subsequent
+// refreshes keep that snapshot visible while reading updates off the UI thread.
+fn read_plan(
+    store: &crate::app::persistence::SharedStateStore,
+    project: &std::path::Path,
+    session: Option<&str>,
+    plan: Option<u64>,
+) -> PlanLoadState {
+    match store.with(|store| {
+        store.with_connection(|connection| {
+            load_selected_plan(connection, project.to_path_buf(), session, plan)
+        })
+    }) {
+        Ok(data) => PlanLoadState::Ready(Box::new(data)),
+        Err(error) => PlanLoadState::Failed(error),
+    }
+}
+
+#[cfg(test)]
+#[path = "adapter_tests.rs"]
+mod tests;

@@ -39,6 +39,7 @@ pub(in crate::app::views) fn render(
                     image.preview.clone(),
                     index,
                     images.len(),
+                    Some(images.iter().map(|image| image.preview.clone()).collect()),
                     entity.clone(),
                 )
                 .pr(theme().size(24.0))

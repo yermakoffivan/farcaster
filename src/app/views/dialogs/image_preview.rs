@@ -1,3 +1,4 @@
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     AnyElement, AvailableSpace, Bounds, Context, CursorStyle, DispatchPhase,
     InteractiveElement as _, IntoElement as _, MouseButton, MouseMoveEvent, MouseUpEvent,
@@ -10,7 +11,9 @@ use std::sync::Arc;
 use crate::app::FarcasterApp;
 use crate::{
     app::ui::assets::AppIcon,
-    app::ui::primitives::{ButtonTone, icon_button, modal},
+    app::ui::primitives::{
+        AppIconSize, ButtonTone, button, icon_button, icon_button_with_size, modal,
+    },
     app::ui::theme::theme,
 };
 
@@ -70,7 +73,7 @@ pub(in crate::app::views) fn render(
                             .gap(theme().space.xs)
                             .child(icon_button(
                                 "open-image-externally",
-                                AppIcon::Eye,
+                                AppIcon::ArrowSquareOut,
                                 "Open image externally",
                                 ButtonTone::Quiet,
                                 {
@@ -83,6 +86,58 @@ pub(in crate::app::views) fn render(
                                     }
                                 },
                             ))
+                            .when(preview.gallery.len() > 1, |controls| {
+                                controls
+                                    .child(div().child(format!(
+                                        "{} / {}",
+                                        preview.index + 1,
+                                        preview.total
+                                    )))
+                                    .children(
+                                        [
+                                            (-1isize, "Previous", AppIcon::CaretLeft),
+                                            (1, "Next", AppIcon::CaretRight),
+                                        ]
+                                        .into_iter()
+                                        .map(
+                                            |(delta, label, icon)| {
+                                                let entity = entity.clone();
+                                                let gallery = preview.gallery.clone();
+                                                let index = (preview.index as isize + delta)
+                                                    .rem_euclid(gallery.len() as isize)
+                                                    as usize;
+                                                icon_button_with_size(
+                                                    if delta < 0 {
+                                                        "image-gallery-previous"
+                                                    } else {
+                                                        "image-gallery-next"
+                                                    },
+                                                    icon,
+                                                    label,
+                                                    AppIconSize::Control,
+                                                    ButtonTone::Quiet,
+                                                    move |window, cx| {
+                                                        let _ = entity.update(cx, |this, cx| {
+                                                            this.open_image_gallery(
+                                                                gallery.clone(),
+                                                                index,
+                                                                window,
+                                                                cx,
+                                                            )
+                                                        });
+                                                    },
+                                                )
+                                                .debug_selector(move || {
+                                                    if delta < 0 {
+                                                        "image-gallery-previous".into()
+                                                    } else {
+                                                        "image-gallery-next".into()
+                                                    }
+                                                })
+                                            },
+                                        ),
+                                    )
+                            })
                             .child(icon_button(
                                 "close-image-preview",
                                 AppIcon::X,
@@ -157,7 +212,12 @@ impl ImageViewport {
     }
 
     fn zoom_at(&mut self, pointer: Point<Pixels>, delta: f32) {
-        let zoom = (self.zoom * (delta * 0.005).exp()).clamp(1.0, 32.0);
+        let native = self.image.size(0);
+        let fit = (self.bounds.size.width / px(u32::from(native.width) as f32))
+            .min(self.bounds.size.height / px(u32::from(native.height) as f32))
+            .min(1.0);
+        let zoom = (self.zoom * (delta * 0.005).exp())
+            .clamp(1.0, 32.0_f32.max(1.0 / fit.max(f32::EPSILON)));
         let pointer = pointer - self.bounds.center();
         self.pan = pointer - (pointer - self.pan) * (zoom / self.zoom);
         self.zoom = zoom;
@@ -274,6 +334,69 @@ impl Render for ImageViewport {
                     },
                 )
                 .size_full(),
+            )
+            .child(
+                div()
+                    .id("image-preview-zoom-controls")
+                    .absolute()
+                    .bottom(theme().space.sm)
+                    .left(theme().space.sm)
+                    .right(theme().space.sm)
+                    .occlude()
+                    .on_any_mouse_down(|_, _, cx| cx.stop_propagation())
+                    .on_click(|_, _, cx| cx.stop_propagation())
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .gap(theme().space.sm)
+                    .bg(theme().colors.panel)
+                    .px(theme().space.sm)
+                    .child(format!(
+                        "{:.0}%",
+                        self.image_size().width / px(u32::from(self.image.size(0).width) as f32)
+                            * 100.0
+                    ))
+                    .child(
+                        button("image-fit", "Fit", ButtonTone::Quiet, true, {
+                            let view = cx.entity();
+                            move |_, cx| {
+                                view.update(cx, |this, cx| {
+                                    this.zoom = 1.0;
+                                    this.pan = Point::default();
+                                    this.drag = None;
+                                    cx.notify();
+                                })
+                            }
+                        })
+                        .debug_selector(|| "image-fit".into()),
+                    )
+                    .child(
+                        button("image-native-size", "100%", ButtonTone::Quiet, true, {
+                            let view = cx.entity();
+                            move |_, cx| {
+                                view.update(cx, |this, cx| {
+                                    let native = this.image.size(0);
+                                    let fit = (this.bounds.size.width
+                                        / px(u32::from(native.width) as f32))
+                                    .min(
+                                        this.bounds.size.height
+                                            / px(u32::from(native.height) as f32),
+                                    )
+                                    .min(1.0);
+                                    this.zoom = 1.0 / fit.max(f32::EPSILON);
+                                    this.pan = Point::default();
+                                    this.drag = None;
+                                    cx.notify();
+                                })
+                            }
+                        })
+                        .debug_selector(|| "image-native-size".into()),
+                    )
+                    .child(
+                        div()
+                            .text_size(theme().type_scale.caption)
+                            .child("Scroll to zoom · Drag to move"),
+                    ),
             )
     }
 }

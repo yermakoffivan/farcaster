@@ -1,5 +1,6 @@
 use crate::app::ui::primitives::ContextMenuExt as _;
 use crate::app::ui::primitives::DropdownMenu as _;
+use crate::app::ui::primitives::Input;
 use std::path::PathBuf;
 
 use super::{
@@ -26,7 +27,7 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, WeakEntity, div, prelude::FluentBuilder as _,
 };
 use gpui_component::{
-    input::{Input, InputState},
+    input::InputState,
     menu::{PopupMenu, PopupMenuItem},
 };
 

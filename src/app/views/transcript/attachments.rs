@@ -28,7 +28,12 @@ pub(crate) fn render_group_attachments<'a>(
     entity: WeakEntity<FarcasterApp>,
 ) -> AnyElement {
     let items: Vec<_> = items.filter(|(_, item)| item.has_attachments()).collect();
-    let image_count = items.iter().map(|(_, item)| item.images.len()).sum();
+    let gallery: Vec<_> = items
+        .iter()
+        .flat_map(|(_, item)| item.images.iter())
+        .map(crate::app::ui::images::image)
+        .collect();
+    let image_count = gallery.len();
     let mut image_offset = 0;
     div()
         .id(("message-attachments", key))
@@ -39,8 +44,14 @@ pub(crate) fn render_group_attachments<'a>(
         .items_start()
         .gap(theme().space.sm)
         .children(items.into_iter().flat_map(|(source_key, item)| {
-            let cards =
-                attachment_cards(source_key, item, image_offset, image_count, entity.clone());
+            let cards = attachment_cards(
+                source_key,
+                item,
+                image_offset,
+                image_count,
+                gallery.clone(),
+                entity.clone(),
+            );
             image_offset += item.images.len();
             cards
         }))
@@ -52,6 +63,7 @@ fn attachment_cards(
     item: &TranscriptItem,
     image_offset: usize,
     image_count: usize,
+    gallery: Vec<std::sync::Arc<gpui::Image>>,
     entity: WeakEntity<FarcasterApp>,
 ) -> Vec<AnyElement> {
     item.images
@@ -62,22 +74,24 @@ fn attachment_cards(
             let id = format!("message-image-{key}-{index}");
             if item.kind == TranscriptKind::Tool {
                 let open = entity.clone();
-                let preview = image.clone();
+                let gallery = gallery.clone();
                 image_thumbnail(id.clone(), image, image_caption(item), move |window, cx| {
                     let _ = open.update(cx, |this, cx| {
-                        this.open_image_preview(
-                            preview.clone(),
-                            image_offset + index,
-                            image_count,
-                            window,
-                            cx,
-                        );
+                        this.open_image_gallery(gallery.clone(), image_offset + index, window, cx);
                     });
                 })
                 .debug_selector(move || id.clone())
                 .into_any_element()
             } else {
-                image_card(id, image, index, item.images.len(), entity.clone()).into_any_element()
+                image_card(
+                    id,
+                    image,
+                    image_offset + index,
+                    image_count,
+                    Some(gallery.clone()),
+                    entity.clone(),
+                )
+                .into_any_element()
             }
         })
         .chain(item.files.iter().enumerate().map(|(index, file)| {

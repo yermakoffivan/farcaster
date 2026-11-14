@@ -1,5 +1,6 @@
 use crate::agents::Backend;
 use crate::app::ui::primitives::ContextMenuExt as _;
+use crate::app::ui::primitives::Input;
 use crate::app::ui::primitives::SelectionStyle as _;
 use crate::{app::session::status::run_status_label, runtime::RunStatus};
 use std::{
@@ -14,7 +15,7 @@ use gpui::{
     prelude::FluentBuilder as _,
 };
 use gpui_component::{
-    input::{Escape, Input, InputState},
+    input::{Escape, InputState},
     menu::PopupMenuItem,
 };
 

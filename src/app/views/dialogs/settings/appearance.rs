@@ -79,8 +79,8 @@ pub(super) fn render(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> An
                 section.children(theme_editor(themes, editable, entity))
             } else {
                 section
-                    .child(theme_list(themes, entity.clone()))
-                    .child(theme_actions(themes, editable, entity))
+                    .child(theme_actions(themes, editable, entity.clone()))
+                    .child(theme_list(themes, entity))
             }
         })
         .into_any_element()
@@ -92,8 +92,8 @@ fn theme_list(themes: &ThemeSettings, entity: WeakEntity<FarcasterApp>) -> AnyEl
     let mut list = div()
         .debug_selector(|| "settings-theme-list".into())
         .flex()
-        .flex_col()
-        .gap(theme().space.xs);
+        .flex_wrap()
+        .gap(theme().space.sm);
     for (index, definition) in themes.library.display_order().into_iter().enumerate() {
         let active = definition.name == selected;
         let custom = themes.library.is_user_theme(&definition.name);
@@ -103,6 +103,9 @@ fn theme_list(themes: &ThemeSettings, entity: WeakEntity<FarcasterApp>) -> AnyEl
             div()
                 .id(("theme-select", index))
                 .debug_selector(move || format!("theme-select-{index}"))
+                .w(gpui::relative(0.48))
+                .min_w(theme().size(240.0))
+                .flex_none()
                 .px(theme().space.sm)
                 .py(theme().space.sm)
                 .border_1()
@@ -134,9 +137,8 @@ fn theme_list(themes: &ThemeSettings, entity: WeakEntity<FarcasterApp>) -> AnyEl
                         })
                 })
                 .flex()
-                .flex_wrap()
-                .items_center()
-                .justify_between()
+                .flex_col()
+                .items_start()
                 .gap(theme().space.sm)
                 .child(
                     div()
@@ -221,6 +223,40 @@ fn theme_preview(index: usize, definition: &ThemeDefinition) -> gpui::Div {
                     }),
                 ),
         )
+        .child(
+            div()
+                .px(theme().space.sm)
+                .py(theme().space.xs)
+                .rounded(theme().size(4.0))
+                .border_1()
+                .border_color(colors.focus_border)
+                .bg(colors.canvas)
+                .text_color(colors.muted)
+                .child("Search…"),
+        )
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .px(theme().space.sm)
+                .py(theme().space.xs)
+                .rounded(theme().size(4.0))
+                .border_1()
+                .border_color(colors.indicator)
+                .shadow(crate::app::ui::primitives::focus_outline(colors.indicator))
+                .bg(colors.canvas)
+                .child(
+                    div()
+                        .bg(colors.selection_background())
+                        .child("Selected text"),
+                )
+                .child(
+                    div()
+                        .w(gpui::px(1.0))
+                        .h(theme().type_scale.caption)
+                        .bg(colors.text),
+                ),
+        )
 }
 
 fn theme_actions(
@@ -238,28 +274,28 @@ fn theme_actions(
         .items_center()
         .gap(theme().space.xs)
         .flex_wrap()
-        .child(settings_action(
+        .child(button(
             "theme-export",
-            "Export active theme as CSS",
-            AppIcon::DownloadSimple,
+            "Export",
+            ButtonTone::Quiet,
             editable,
             move |window, cx| {
                 let _ = export.update(cx, |this, cx| this.export_theme(window, cx));
             },
         ))
-        .child(settings_action(
+        .child(button(
             "theme-import",
-            "Import theme from CSS",
-            AppIcon::UploadSimple,
+            "Import",
+            ButtonTone::Quiet,
             editable,
             move |window, cx| {
                 let _ = import.update(cx, |this, cx| this.import_theme(window, cx));
             },
         ))
-        .child(settings_action(
+        .child(button(
             "theme-duplicate",
             "Duplicate to edit",
-            AppIcon::Copy,
+            ButtonTone::Quiet,
             editable,
             move |window, cx| {
                 let _ = duplicate.update(cx, |this, cx| {
@@ -269,10 +305,10 @@ fn theme_actions(
         ))
         .when(themes.draft.is_some(), |actions| {
             actions.child(
-                settings_action(
+                button(
                     "theme-delete",
                     "Delete theme",
-                    AppIcon::Trash,
+                    ButtonTone::Quiet,
                     editable,
                     move |window, cx| {
                         let _ = delete.update(cx, |this, cx| this.delete_theme(window, cx));

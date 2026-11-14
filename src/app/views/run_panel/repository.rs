@@ -67,13 +67,16 @@ impl FarcasterApp {
                     .gap(theme().space.xs)
                     .py(theme().space.xs)
                     .child(header)
-                    .when_some(snapshot, |section, _| {
-                        section.child(
-                            SearchField::new("repository-search", browser.search)
-                                .accessible_label("Filter changed files")
-                                .inset(gpui::px(0.0)),
-                        )
-                    }),
+                    .when(
+                        snapshot.is_some_and(|snapshot| !snapshot.changes.is_empty()),
+                        |section| {
+                            section.child(
+                                SearchField::new("repository-search", browser.search)
+                                    .accessible_label("Filter changed files")
+                                    .inset(gpui::px(0.0)),
+                            )
+                        },
+                    ),
             )
             .when(
                 self.project.repository.loading && !self.project.repository.initialized,

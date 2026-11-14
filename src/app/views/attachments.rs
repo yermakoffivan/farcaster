@@ -128,6 +128,7 @@ pub(super) fn image_card(
     image: Arc<Image>,
     index: usize,
     count: usize,
+    gallery: Option<Vec<Arc<Image>>>,
     entity: WeakEntity<FarcasterApp>,
 ) -> gpui::Stateful<Div> {
     let format = image
@@ -143,7 +144,11 @@ pub(super) fn image_card(
         Some(image.clone()),
         move |window, cx| {
             let _ = entity.update(cx, |this, cx| {
-                this.open_image_preview(image.clone(), index, count, window, cx);
+                if let Some(gallery) = &gallery {
+                    this.open_image_gallery(gallery.clone(), index, window, cx);
+                } else {
+                    this.open_image_preview(image.clone(), index, count, window, cx);
+                }
             });
         },
     )

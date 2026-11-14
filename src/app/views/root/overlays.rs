@@ -1,6 +1,6 @@
 use gpui::{
-    AnyElement, Context, FocusHandle, IntoElement as _, ParentElement as _, Styled as _,
-    WeakEntity, div, prelude::FluentBuilder as _,
+    AnyElement, Context, FocusHandle, InteractiveElement as _, IntoElement as _,
+    ParentElement as _, Styled as _, WeakEntity, div, prelude::FluentBuilder as _,
 };
 
 use super::{
@@ -90,9 +90,10 @@ impl FarcasterApp {
                         let close = entity.clone();
                         surface
                             .relative()
+                            .debug_selector(|| "project-plan-dialog".into())
                             .w(gpui::px(crate::app::views::workgraph::BOARD_WIDTH))
                             .max_w_full()
-                            .h(theme().size(620.0))
+                            .h(theme().size(crate::app::views::workgraph::BOARD_HEIGHT))
                             .max_h(gpui::relative(1.0))
                             .overflow_hidden()
                             .child(self.views.workgraph.clone())

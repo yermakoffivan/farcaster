@@ -314,3 +314,67 @@ fn image_preview_dismisses_empty_space_but_keeps_image_gestures_and_controls(
         },
     );
 }
+
+#[gpui::test]
+fn image_gallery_navigation_and_zoom_buttons(cx: &mut gpui::TestAppContext) {
+    crate::app::test_support::with_offline_app(
+        concat!(
+            module_path!(),
+            "::image_gallery_navigation_and_zoom_buttons"
+        ),
+        cx,
+        |cx, app, _, _| {
+            let gallery: Vec<_> = [(1600, 1200), (400, 300)]
+                .into_iter()
+                .map(|(w, h)| {
+                    let mut bytes = std::io::Cursor::new(Vec::new());
+                    image::DynamicImage::new_rgb8(w, h)
+                        .write_to(&mut bytes, image::ImageFormat::Png)
+                        .unwrap();
+                    Arc::new(Image::from_bytes(ImageFormat::Png, bytes.into_inner()))
+                })
+                .collect();
+            cx.update(|window, cx| {
+                app.update(cx, |app, cx| app.open_image_gallery(gallery, 0, window, cx))
+            });
+            cx.run_until_parked();
+            cx.simulate_resize(size(px(800.), px(600.)));
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            let viewport = cx.update(|_, cx| {
+                app.read(cx)
+                    .overlays
+                    .image_preview
+                    .as_ref()
+                    .unwrap()
+                    .viewport
+                    .clone()
+            });
+            let native = cx.debug_bounds("image-native-size").unwrap();
+            cx.simulate_click(native.center(), Default::default());
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            assert_eq!(
+                cx.debug_bounds("image-preview-image").unwrap().size.width,
+                px(1600.)
+            );
+            let fit = cx.debug_bounds("image-fit").unwrap();
+            cx.simulate_click(fit.center(), Default::default());
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            assert!(cx.debug_bounds("image-preview-image").unwrap().size.width < px(800.));
+            cx.update(|_, cx| assert_eq!(viewport.read(cx).zoom, 1.));
+            let next = cx.debug_bounds("image-gallery-next").unwrap();
+            cx.simulate_click(next.center(), Default::default());
+            cx.run_until_parked();
+            cx.update(|window, cx| {
+                assert_eq!(
+                    app.read(cx).overlays.image_preview.as_ref().unwrap().index,
+                    1
+                );
+                window.draw(cx).clear(cx);
+            });
+            assert_eq!(
+                cx.debug_bounds("image-preview-image").unwrap().size.width,
+                px(400.)
+            );
+        },
+    );
+}

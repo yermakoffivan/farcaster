@@ -1,9 +1,10 @@
+use crate::app::ui::primitives::Input;
 use gpui::{
     AnyElement, App, ElementId, Entity, Focusable as _, InteractiveElement as _, IntoElement,
     ParentElement as _, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
     Window, div, prelude::FluentBuilder as _,
 };
-use gpui_component::input::{Input, InputState};
+use gpui_component::input::InputState;
 
 use crate::app::ui::{assets::AppIcon, theme::theme};
 

@@ -4,6 +4,7 @@ mod layout;
 mod mechanics;
 use mechanics::{model_matches, option_button, option_row, picker_panel, result_list};
 mod worker_model_picker;
+use crate::app::ui::primitives::Input;
 use crate::app::ui::{
     assets::AppIcon,
     primitives::{ButtonTone, Dropdown, DropdownItem, button},
@@ -13,7 +14,6 @@ use gpui::{
     InteractiveElement as _, IntoElement as _, ParentElement as _, StatefulInteractiveElement as _,
     Styled as _, div, prelude::FluentBuilder as _, px,
 };
-use gpui_component::input::Input;
 
 pub(in crate::app) struct WorkerModelPicker {
     id: String,

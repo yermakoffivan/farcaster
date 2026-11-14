@@ -12,7 +12,6 @@ use gpui::{
 use gpui_component::{
     Disableable as _, Sizable as _, Size,
     button::{Button, ButtonVariants as _},
-    input::Input,
 };
 
 use super::super::FarcasterApp;
@@ -20,7 +19,7 @@ use crate::{
     app::OVERLAY_KEY_CONTEXT,
     app::ui::assets::AppIcon,
     app::ui::primitives::{
-        AppIconSize, ButtonPressExt as _, ButtonTone, Dropdown, DropdownItem, FeedbackTone,
+        AppIconSize, ButtonPressExt as _, ButtonTone, Dropdown, DropdownItem, FeedbackTone, Input,
         app_icon, button, feedback, modal, on_press_control,
     },
     app::ui::theme::theme,
@@ -113,6 +112,19 @@ pub(in crate::app::views) fn render(
                                         },
                                     )
                                 })),
+                        )
+                        .child(
+                            settings_action(
+                                "close-settings",
+                                "Close settings",
+                                AppIcon::X,
+                                true,
+                                move |window, cx| {
+                                    let _ =
+                                        close.update(cx, |this, cx| this.close_sheet(window, cx));
+                                },
+                            )
+                            .debug_selector(|| "close-settings".into()),
                         ),
                 )
                 .child(
@@ -131,29 +143,6 @@ pub(in crate::app::views) fn render(
                         .overflow_y_scroll()
                         .p(crate::app::ui::grid::form_inset())
                         .child(content),
-                )
-                .child(
-                    div()
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .justify_end()
-                        .gap(theme().space.sm)
-                        .px(crate::app::ui::grid::form_inset())
-                        .py(theme().space.md)
-                        .child(
-                            settings_action(
-                                "close-settings",
-                                "Close settings",
-                                AppIcon::X,
-                                true,
-                                move |window, cx| {
-                                    let _ =
-                                        close.update(cx, |this, cx| this.close_sheet(window, cx));
-                                },
-                            )
-                            .debug_selector(|| "close-settings".into()),
-                        ),
                 )
         },
     )
@@ -275,7 +264,7 @@ fn voice_setting(
                 .debug_selector(|| "settings-voice".into())
                 .flex()
                 .items_center()
-                .justify_between()
+                .justify_start()
                 .gap(theme().space.md)
                 .child(setting_label("Voice", description))
                 .child(
@@ -300,7 +289,7 @@ fn voice_setting(
             div()
                 .flex()
                 .items_center()
-                .justify_between()
+                .justify_start()
                 .gap(theme().space.md)
                 .child(setting_label(
                     "Voice shortcut",
@@ -389,6 +378,7 @@ fn connections(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyEleme
                         ))
                         .child(
                             div()
+                                .debug_selector(|| "network-proxy-control".into())
                                 .w(theme().size(300.0))
                                 .flex_none()
                                 .flex()
@@ -396,9 +386,12 @@ fn connections(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyEleme
                                 .gap(theme().space.sm)
                                 .child(
                                     div()
+                                        .debug_selector(|| "network-proxy-input".into())
                                         .flex_1()
-                                        .min_w_0()
-                                        .child(Input::new(&app.settings.network_proxy_input)),
+                                        .min_w(theme().size(120.0))
+                                        .child(
+                                            Input::new(&app.settings.network_proxy_input).w_full(),
+                                        ),
                                 )
                                 .child(settings_action(
                                     "clear-network-proxy",
@@ -481,7 +474,7 @@ fn toggle_setting(
     div()
         .flex()
         .items_center()
-        .justify_between()
+        .justify_start()
         .gap(theme().space.md)
         .child(setting_label(title, description))
         .child(
@@ -506,7 +499,7 @@ fn setting_label(title: &'static str, description: &'static str) -> AnyElement {
     div()
         .min_w_0()
         .flex_1()
-        .max_w(theme().size(480.0))
+        .max_w(theme().size(320.0))
         .flex()
         .flex_col()
         .gap(theme().space.xs)
@@ -536,7 +529,7 @@ fn transcript_font_size(size: gpui::Pixels, entity: WeakEntity<FarcasterApp>) ->
         .debug_selector(|| "settings-font-size".into())
         .flex()
         .items_center()
-        .justify_between()
+        .justify_start()
         .gap(theme().space.md)
         .child(setting_label("Transcript font size", ""))
         .child(

@@ -1019,9 +1019,10 @@ impl FarcasterApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.settings
-            .network_proxy_input
-            .update(cx, |input, cx| input.set_value("", window, cx));
+        self.settings.network_proxy_input.update(cx, |input, cx| {
+            input.set_value("", window, cx);
+            input.focus_handle(cx).focus(window, cx);
+        });
         self.save_settings_proxy(cx);
     }
 
@@ -1200,6 +1201,30 @@ impl FarcasterApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.open_image_preview_with_gallery(image, index, total, Vec::new(), window, cx);
+    }
+
+    pub(crate) fn open_image_gallery(
+        &mut self,
+        gallery: Vec<Arc<Image>>,
+        index: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(image) = gallery.get(index).cloned() {
+            self.open_image_preview_with_gallery(image, index, gallery.len(), gallery, window, cx);
+        }
+    }
+
+    fn open_image_preview_with_gallery(
+        &mut self,
+        image: Arc<Image>,
+        index: usize,
+        total: usize,
+        gallery: Vec<Arc<Image>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.overlays.image_preview_task.take();
         let rule = crate::app::attachment::resolve(
             crate::app::attachment::AttachmentSource::Image(image.format()),
@@ -1239,6 +1264,7 @@ impl FarcasterApp {
                     crate::app::views::dialogs::image_preview::ImageViewport::new(rendered)
                 });
                 this.overlays.image_preview = Some(ImagePreview {
+                    gallery,
                     image,
                     viewport,
                     index,

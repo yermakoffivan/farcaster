@@ -1,9 +1,10 @@
+use crate::app::ui::primitives::Input;
 use crate::app::ui::primitives::SelectionStyle as _;
 use gpui::{
     Div, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _, Role,
     StatefulInteractiveElement as _, Styled as _, div, prelude::FluentBuilder as _, px,
 };
-use gpui_component::input::{Input, InputState, Textarea, TextareaState};
+use gpui_component::input::{InputState, Textarea, TextareaState};
 
 use super::{
     adapter::{CreateStage, WorkGraphBoardView},

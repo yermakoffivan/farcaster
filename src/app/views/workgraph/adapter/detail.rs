@@ -256,12 +256,6 @@ impl WorkGraphBoardView {
     pub(crate) fn render_external_detail(&mut self, cx: &mut Context<Self>) -> gpui::AnyElement {
         let entity = cx.entity();
         match &self.state {
-            PlanLoadState::Loading => feedback(
-                "workgraph-detail-loading",
-                "Loading node…",
-                FeedbackTone::Info,
-            )
-            .into_any_element(),
             PlanLoadState::Failed(error) => {
                 feedback("workgraph-detail-error", error.clone(), FeedbackTone::Error)
                     .into_any_element()

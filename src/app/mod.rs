@@ -180,6 +180,7 @@ struct SessionTitleEdit {
 
 #[derive(Clone)]
 pub(crate) struct ImagePreview {
+    pub(crate) gallery: Vec<Arc<Image>>,
     pub(crate) image: Arc<Image>,
     pub(in crate::app) viewport: Entity<views::dialogs::image_preview::ImageViewport>,
     pub(crate) index: usize,
