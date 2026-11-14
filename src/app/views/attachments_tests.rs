@@ -107,3 +107,52 @@ fn images_files_and_pastes_share_height_and_top_edge(cx: &mut gpui::TestAppConte
         );
     }
 }
+
+#[gpui::test]
+fn tool_thumbnails_support_keyboard_and_mouse(cx: &mut gpui::TestAppContext) {
+    struct Thumbnail {
+        clicks: Rc<Cell<usize>>,
+        owner: gpui::FocusHandle,
+    }
+    impl Render for Thumbnail {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl gpui::IntoElement {
+            let clicks = self.clicks.clone();
+            div()
+                .track_focus(&self.owner)
+                .capture_key_down(|event, window, cx| {
+                    crate::app::ui::focus::traverse_tab(event, None, window, cx);
+                })
+                .child(
+                    image_thumbnail(
+                        "screenshot",
+                        Arc::new(Image::from_bytes(
+                            gpui::ImageFormat::Png,
+                            include_bytes!("../../../assets/icons/app/icon_16x16.png").to_vec(),
+                        )),
+                        "Inspect appearance settings".into(),
+                        move |_, _| clicks.set(clicks.get() + 1),
+                    )
+                    .debug_selector(|| "screenshot".into()),
+                )
+        }
+    }
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        crate::app::ui::primitives::init_tooltips(cx);
+    });
+    let clicks = Rc::new(Cell::new(0));
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let owner = cx.focus_handle();
+        owner.focus(window, cx);
+        Thumbnail {
+            clicks: clicks.clone(),
+            owner,
+        }
+    });
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+    cx.simulate_keystrokes("tab enter");
+    assert_eq!(clicks.get(), 1);
+    let bounds = cx.debug_bounds("screenshot").unwrap();
+    cx.simulate_click(bounds.center(), Default::default());
+    assert_eq!(clicks.get(), 2);
+}

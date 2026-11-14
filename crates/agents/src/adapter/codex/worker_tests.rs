@@ -4084,3 +4084,22 @@ fn terminal_error_is_kept_for_failed_turn_without_entering_retry() {
     );
     session.close().expect("close fixture");
 }
+
+#[test]
+fn completed_nested_mcp_call_exposes_serialized_images() {
+    let content = json!([
+        {"type":"text","text":"Screenshot"},
+        {"type":"image","data":"iVBORw0KGgo=","mimeType":"image/png"}
+    ]);
+    assert_eq!(
+        codex_tool_end(&json!({"item": {
+            "id":"nested", "type":"mcpToolCall", "status":"completed",
+            "result":{"content":[{"type":"text","text":json!({"content":content,"isError":false}).to_string()}]}
+        }})),
+        Some(WorkerActivity::ToolFinished {
+            id: "nested".into(),
+            result: content,
+            is_error: false
+        })
+    );
+}

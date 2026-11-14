@@ -343,14 +343,21 @@ pub(super) fn apply_tool_result(
     result: &Value,
     message: bool,
 ) -> TranscriptItem {
+    let normalized = super::attachments::content_blocks(result)
+        .map(farcaster_agent_protocol::normalize_tool_output)
+        .and_then(|blocks| match blocks {
+            Cow::Owned(blocks) => Some(serde_json::json!({"content": blocks})),
+            Cow::Borrowed(_) => None,
+        });
+    let content = normalized.as_ref().unwrap_or(result);
     let output = if message {
-        message_text(result).into_owned()
+        message_text(content).into_owned()
     } else {
-        result_text(result)
+        result_text(content)
     };
     let mut item = item.with_tool_output(output, Some(result));
-    item.images = super::history::content_images(result);
-    item.files = Arc::new(super::attachments::result_files(result));
+    item.images = super::history::content_images(content);
+    item.files = Arc::new(super::attachments::result_files(content));
     item.finish_tool(
         result
             .get("isError")

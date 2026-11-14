@@ -20,6 +20,8 @@ use super::super::{
 
 #[path = "history_cache.rs"]
 mod history_cache;
+#[path = "history_images.rs"]
+mod history_images;
 
 const INTERACTIVE_SOURCE_KINDS: &[&str] = &["cli", "vscode", "exec", "appServer", "unknown"];
 const AGENT_SOURCE_KINDS: &[&str] = &[
@@ -315,6 +317,7 @@ fn read_history<R: std::io::BufRead, W: std::io::Write>(
             messages.extend(history_messages(item));
         }
     }
+    history_images::restore(&mut messages, thread, codex_home, locator);
     let identity = stored_identities(codex_home, &[locator])?.remove(locator);
     let (model, thinking_level) = identity.map_or((None, None), |identity| {
         (Some((identity.provider, identity.model)), identity.effort)
@@ -658,11 +661,7 @@ fn history_tool_output(item: &Value, kind: &str, is_error: bool) -> Vec<Value> {
                 .map(|text| vec![json!({"type": "text", "text": text})])
                 .unwrap_or_default();
         }
-        return item
-            .pointer("/result/content")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
+        return tool::mcp_output(item);
     }
     let output = item
         .get("aggregatedOutput")

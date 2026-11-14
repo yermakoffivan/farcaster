@@ -436,3 +436,33 @@ fn reload_preserves_image_only_user_messages() {
         ]})]
     );
 }
+
+#[test]
+fn restored_nested_mcp_images_reach_the_conversation() {
+    let images = json!([
+        {"type":"text","text":"Inspect settings"},
+        {"type":"image","data":"iVBORw0KGgo=","mimeType":"image/png"},
+        {"type":"image","data":"iVBORw0KGgo=","mimeType":"image/png"}
+    ]);
+    let item = json!({
+        "type":"mcpToolCall", "id":"nested", "tool":"js", "status":"completed",
+        "arguments":{"title":"Inspect settings"},
+        "result":{"content":[{"type":"text","text":json!({"content":images,"isError":false}).to_string()}]}
+    });
+    let messages = history_messages(&item);
+    assert_eq!(messages[1]["content"], images);
+    let mut history = farcaster_conversation::ConversationState::default();
+    history.replace_history(&messages);
+    assert_eq!(history.items[0].images.len(), 2);
+    assert_eq!(history.items[0].tool_output, "Inspect settings");
+    assert_eq!(
+        history.items[0]
+            .tool_details
+            .as_ref()
+            .unwrap()
+            .metadata
+            .native
+            .as_ref(),
+        Some(&item)
+    );
+}

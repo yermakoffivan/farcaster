@@ -96,16 +96,60 @@ pub(super) fn render_activity_group(
                                 entity.clone(),
                             )
                         } else {
-                            render_tool(font_scale, index, item, child_expanded, entity.clone(), cx)
+                            render_tool_details(
+                                font_scale,
+                                index,
+                                item,
+                                child_expanded,
+                                entity.clone(),
+                                cx,
+                            )
                         }
                     })),
             )
         })
         .child(files)
+        .when(group_items().any(|item| item.has_attachments()), |group| {
+            group.child(
+                crate::app::views::transcript::attachments::render_group_attachments(
+                    key,
+                    group_items()
+                        .enumerate()
+                        .map(|(offset, item)| (start + offset, item.as_ref())),
+                    entity,
+                ),
+            )
+        })
         .into_any_element()
 }
 
 pub(super) fn render_tool(
+    font_scale: f32,
+    key: usize,
+    item: &TranscriptItem,
+    expanded: bool,
+    entity: WeakEntity<FarcasterApp>,
+    cx: &gpui::App,
+) -> AnyElement {
+    div()
+        .w_full()
+        .child(render_tool_details(
+            font_scale,
+            key,
+            item,
+            expanded,
+            entity.clone(),
+            cx,
+        ))
+        .when(item.has_attachments(), |row| {
+            row.child(div().px(crate::app::ui::grid::transcript_inset()).child(
+                crate::app::views::transcript::attachments::render_attachments(key, item, entity),
+            ))
+        })
+        .into_any_element()
+}
+
+fn render_tool_details(
     font_scale: f32,
     key: usize,
     item: &TranscriptItem,
@@ -131,23 +175,7 @@ pub(super) fn render_tool(
         .filter(|details| details.metadata.category == Some(crate::agents::ToolCategory::Execute))
         .and_then(|details| details.display_command())
     {
-        return div()
-            .child(command_row::render(
-                font_scale,
-                key,
-                &command,
-                item,
-                expanded,
-                entity.clone(),
-            ))
-            .when(item.has_attachments(), |row| {
-                row.child(
-                    crate::app::views::transcript::attachments::render_attachments(
-                        key, item, entity,
-                    ),
-                )
-            })
-            .into_any_element();
+        return command_row::render(font_scale, key, &command, item, expanded, entity);
     }
     let summary = tool_summary(item);
     let read_target = direct_read_target(item).map(str::to_owned);
@@ -217,15 +245,6 @@ pub(super) fn render_tool(
                 )
             }),
         )
-        .when(item.has_attachments(), |tool| {
-            tool.child(
-                crate::app::views::transcript::attachments::render_attachments(
-                    key,
-                    item,
-                    entity.clone(),
-                ),
-            )
-        })
         .when(expanded, |tool| {
             tool.child(
                 disclosure_detail()

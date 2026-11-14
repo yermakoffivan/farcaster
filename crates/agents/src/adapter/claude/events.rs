@@ -36,6 +36,22 @@ pub(super) fn text(content: &Value) -> String {
     }
 }
 
+fn tool_content(content: &Value) -> Vec<Value> {
+    match content {
+        Value::Array(blocks) => blocks
+            .iter()
+            .map(|block| match string(block, "type") {
+                "image" if block["source"]["type"] == "base64" => json!({
+                    "type":"image", "data":block["source"]["data"],
+                    "mimeType":block["source"]["media_type"]
+                }),
+                _ => block.clone(),
+            })
+            .collect(),
+        _ => vec![json!({"type":"text","text":text(content)})],
+    }
+}
+
 pub(super) fn tool_metadata(name: &str, input: &Value) -> ToolMetadata {
     let category = match name {
         "Read" => ToolCategory::Read,
@@ -76,7 +92,7 @@ pub(super) fn history_messages(message: &Value) -> Vec<Value> {
         match string(block, "type") {
             "tool_result" => messages.push(json!({"role":"toolResult",
                 "toolCallId":block["tool_use_id"], "isError":block["is_error"].as_bool().unwrap_or(false),
-                "content":[{"type":"text","text":text(&block["content"])}]})),
+                "content":tool_content(&block["content"])})),
             "tool_use" => content.push(json!({"type":"toolCall", "id":block["id"],
                 "name":block["name"], "arguments":block["input"],
                 "metadata":tool_metadata(string(block,"name"), &block["input"])})),
@@ -249,7 +265,7 @@ impl Events {
                 for block in blocks(&frame["message"]).iter() {
                     if block["type"] == "tool_result" && self.tools.remove(string(block,"tool_use_id")) {
                         self.activity(WorkerActivity::ToolFinished { id:string(block,"tool_use_id").into(),
-                            result:json!({"content":[{"type":"text","text":text(&block["content"])}]}),
+                            result:json!({"content":tool_content(&block["content"])}),
                             is_error:block["is_error"].as_bool().unwrap_or(false) });
                     }
                 }

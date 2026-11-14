@@ -372,3 +372,119 @@ fn hovering_short_tool_output_does_not_notify_the_view(cx: &mut gpui::TestAppCon
     }
     assert_eq!(notifications.get(), 0);
 }
+
+#[gpui::test]
+fn grouped_images_wrap_stay_visible_and_open_in_group_order(cx: &mut gpui::TestAppContext) {
+    struct Group {
+        app: WeakEntity<FarcasterApp>,
+        items: PersistentVec<Arc<TranscriptItem>>,
+        expanded: bool,
+        width: f32,
+    }
+    impl gpui::Render for Group {
+        fn render(
+            &mut self,
+            _: &mut gpui::Window,
+            cx: &mut gpui::Context<Self>,
+        ) -> impl gpui::IntoElement {
+            div().w(px(self.width)).child(render_activity_group(
+                1.0,
+                0,
+                &self.items,
+                0,
+                self.items.len(),
+                self.expanded,
+                &Default::default(),
+                None,
+                self.app.clone(),
+                cx,
+            ))
+        }
+    }
+    crate::app::test_support::with_offline_app(
+        concat!(
+            module_path!(),
+            "::grouped_images_wrap_stay_visible_and_open_in_group_order"
+        ),
+        cx,
+        |cx, app, _, _| {
+            let mut state = ConversationState::default();
+            for id in ["settings", "composer"] {
+                state.reduce(&json!({"type":"tool_execution_start", "toolCallId":id, "toolName":"js", "args":{"title":format!("Inspect {id}")}}));
+                state.reduce(&json!({"type":"tool_execution_end", "toolCallId":id, "isError":false,"result":{"content":[]}}));
+            }
+            let mut images = Vec::new();
+            for width in [64, 32, 16] {
+                let mut bytes = std::io::Cursor::new(Vec::new());
+                image::DynamicImage::new_rgb8(width, 16)
+                    .write_to(&mut bytes, image::ImageFormat::Png)
+                    .unwrap();
+                images.push(Arc::new(
+                    crate::conversation::EncodedImage::new(bytes.into_inner(), "image/png")
+                        .unwrap(),
+                ));
+            }
+            let mut first = state.items[0].as_ref().clone();
+            first.images = Arc::new(images[..2].to_vec());
+            state.items.set(0, Arc::new(first));
+            let mut second = state.items[1].as_ref().clone();
+            second.images = Arc::new(images[2..].to_vec());
+            state.items.set(1, Arc::new(second));
+
+            for expanded in [false, true] {
+                for width in [600., 250., 130.] {
+                    cx.update(|window, cx| {
+                        window.replace_root(cx, |_, _| Group {
+                            app: app.downgrade(),
+                            items: state.items.clone(),
+                            expanded,
+                            width,
+                        });
+                        window.draw(cx).clear(cx);
+                    });
+                    let first = cx
+                        .debug_bounds("message-image-0-0")
+                        .expect("first image visible");
+                    let second = cx
+                        .debug_bounds("message-image-0-1")
+                        .expect("second image visible");
+                    let third = cx
+                        .debug_bounds("message-image-1-0")
+                        .expect("third image visible");
+                    for bounds in [first, second, third] {
+                        assert!(
+                            bounds.right() <= px(width),
+                            "thumbnail fits narrow transcript"
+                        );
+                        assert!(
+                            bounds.size.height > theme().size(100.0),
+                            "image reserves height before loading"
+                        );
+                    }
+                    if width == 600. {
+                        assert_eq!(first.top(), second.top());
+                        assert_eq!(second.top(), third.top());
+                    } else {
+                        assert!(second.top() >= first.bottom());
+                        assert!(third.top() >= second.bottom());
+                    }
+                }
+            }
+            let third = cx.debug_bounds("message-image-1-0").unwrap();
+            cx.simulate_click(third.center(), Default::default());
+            cx.run_until_parked();
+            cx.update(|window, cx| {
+                app.update(cx, |app, cx| {
+                    let preview = app
+                        .overlays
+                        .image_preview
+                        .as_ref()
+                        .expect("image click opens preview");
+                    assert_eq!((preview.index, preview.total), (2, 3));
+                    assert_eq!(preview.image.bytes(), images[2].bytes());
+                    app.close_image_preview(window, cx);
+                });
+            });
+        },
+    );
+}

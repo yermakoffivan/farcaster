@@ -12,6 +12,8 @@ mod effort;
 pub mod extensions;
 pub use effort::{effort_rank, model_efforts};
 mod tool;
+mod tool_output;
+pub use tool_output::normalize_tool_output;
 mod workers;
 
 pub use tool::{CommonTool, ToolCategory, ToolMetadata};

@@ -10,15 +10,26 @@ use crate::app::{
         primitives::{AppTooltip as _, ContextMenuExt as _, ContextMenuTrigger, DropdownMenu as _},
         theme::theme,
     },
-    views::attachments::{image_card, open_card},
+    views::attachments::{image_card, image_thumbnail, open_card},
 };
-use crate::conversation::TranscriptItem;
+use crate::conversation::{TranscriptItem, TranscriptKind};
 
 pub(crate) fn render_attachments(
     key: usize,
     item: &TranscriptItem,
     entity: WeakEntity<FarcasterApp>,
 ) -> AnyElement {
+    render_group_attachments(key, std::iter::once((key, item)), entity)
+}
+
+pub(crate) fn render_group_attachments<'a>(
+    key: usize,
+    items: impl Iterator<Item = (usize, &'a TranscriptItem)>,
+    entity: WeakEntity<FarcasterApp>,
+) -> AnyElement {
+    let items: Vec<_> = items.filter(|(_, item)| item.has_attachments()).collect();
+    let image_count = items.iter().map(|(_, item)| item.images.len()).sum();
+    let mut image_offset = 0;
     div()
         .id(("message-attachments", key))
         .w_full()
@@ -27,17 +38,49 @@ pub(crate) fn render_attachments(
         .flex_wrap()
         .items_start()
         .gap(theme().space.sm)
-        .children(item.images.iter().enumerate().map(|(index, image)| {
-            let image = crate::app::ui::images::image(image);
-            image_card(
-                format!("message-image-{key}-{index}"),
-                image,
-                index,
-                item.images.len(),
-                entity.clone(),
-            )
+        .children(items.into_iter().flat_map(|(source_key, item)| {
+            let cards =
+                attachment_cards(source_key, item, image_offset, image_count, entity.clone());
+            image_offset += item.images.len();
+            cards
         }))
-        .children(item.files.iter().enumerate().map(|(index, file)| {
+        .into_any_element()
+}
+
+fn attachment_cards(
+    key: usize,
+    item: &TranscriptItem,
+    image_offset: usize,
+    image_count: usize,
+    entity: WeakEntity<FarcasterApp>,
+) -> Vec<AnyElement> {
+    item.images
+        .iter()
+        .enumerate()
+        .map(|(index, image)| {
+            let image = crate::app::ui::images::image(image);
+            let id = format!("message-image-{key}-{index}");
+            if item.kind == TranscriptKind::Tool {
+                let open = entity.clone();
+                let preview = image.clone();
+                image_thumbnail(id.clone(), image, image_caption(item), move |window, cx| {
+                    let _ = open.update(cx, |this, cx| {
+                        this.open_image_preview(
+                            preview.clone(),
+                            image_offset + index,
+                            image_count,
+                            window,
+                            cx,
+                        );
+                    });
+                })
+                .debug_selector(move || id.clone())
+                .into_any_element()
+            } else {
+                image_card(id, image, index, item.images.len(), entity.clone()).into_any_element()
+            }
+        })
+        .chain(item.files.iter().enumerate().map(|(index, file)| {
             let local = crate::app::workspace::files::local_file_target(
                 &file.path.to_string_lossy(),
                 std::path::Path::new("/"),
@@ -130,6 +173,50 @@ pub(crate) fn render_attachments(
             .w_auto()
             .max_w_full()
             .context_menu(move |menu, window, cx| actions(menu, window, cx))
+            .into_any_element()
         }))
-        .into_any_element()
+        .collect()
 }
+
+// Use supplied context, never guess a screenshot's purpose from its pixels or script.
+fn image_caption(item: &TranscriptItem) -> String {
+    let Some(details) = &item.tool_details else {
+        return item.label.clone();
+    };
+    let title = details
+        .arguments
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|title| !title.is_empty())
+        .or_else(|| {
+            details
+                .metadata
+                .title
+                .as_deref()
+                .map(str::trim)
+                .filter(|title| !title.is_empty() && *title != details.name)
+        });
+    if let Some(title) = title {
+        return title.to_owned();
+    }
+    details
+        .metadata
+        .targets
+        .first()
+        .map(String::as_str)
+        .or_else(|| {
+            details
+                .arguments
+                .get("path")
+                .and_then(serde_json::Value::as_str)
+        })
+        .and_then(|path| std::path::Path::new(path).file_name())
+        .map(|name| name.to_string_lossy().into_owned())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| details.summary())
+}
+
+#[cfg(test)]
+#[path = "attachments_tests.rs"]
+mod tests;

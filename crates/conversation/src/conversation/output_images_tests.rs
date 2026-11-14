@@ -55,3 +55,37 @@ fn streamed_image_markdown_keeps_a_single_parse_until_completion() {
     assert_eq!(state.items[0].complete_text(), text);
     assert!(state.items[0].stream_chunks.is_empty());
 }
+
+#[test]
+fn wrapped_tool_attachments_survive_backend_neutral_live_and_history_paths() {
+    let content = json!([{"type":"text","text":json!({"content":[
+        {"type":"text","text":"App screenshot"},image(),image(),
+        {"type":"resource_link","name":"Notes","uri":"file:///tmp/notes.html"}
+    ],"isError":false}).to_string()}]);
+    for name in [
+        "mcp__computer__capture",
+        "browser_screenshot",
+        "custom_capture",
+    ] {
+        let call = json!({"role":"assistant","content":[{"type":"toolCall","id":"a","name":name,"arguments":{"title":"Inspect app"}}]});
+        let result = json!({"role":"toolResult","toolCallId":"a","content":content});
+        let mut history = ConversationState::default();
+        history.replace_history(&[call, result.clone()]);
+        let mut live = ConversationState::default();
+        live.reduce(&json!({"type":"tool_execution_start","toolCallId":"a","toolName":name,"args":{"title":"Inspect app"}}));
+        let raw = json!({"content":content});
+        live.reduce(
+            &json!({"type":"tool_execution_end","toolCallId":"a","result":raw,"isError":false}),
+        );
+        for (state, raw) in [(history, result), (live, raw)] {
+            let item = &state.items[0];
+            assert_eq!(item.images.len(), 2);
+            assert_eq!(item.files.len(), 1);
+            assert_eq!(item.tool_output, "App screenshot");
+            assert_eq!(
+                item.tool_details.as_ref().unwrap().result.as_ref(),
+                Some(&raw)
+            );
+        }
+    }
+}

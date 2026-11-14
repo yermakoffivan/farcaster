@@ -39,7 +39,16 @@ pub(crate) fn estimated_row_height(
         | TranscriptRow::Review { .. } => None,
     };
     let Some(text) = text else {
-        return theme().size(24.0);
+        // Reserve one attachment row until layout measures the actual wrapping.
+        let mut range = row.item_start()..row.item_end();
+        let attachments = if range.clone().any(|index| !item(index).images.is_empty()) {
+            theme().size(140.0)
+        } else if range.any(|index| !item(index).files.is_empty()) {
+            theme().size(60.0)
+        } else {
+            px(0.0)
+        };
+        return theme().size(24.0) + attachments;
     };
 
     let visual_lines = text
@@ -693,7 +702,6 @@ fn text_revision(text: &str) -> usize {
 fn is_groupable_activity(item: &TranscriptItem) -> bool {
     use conversation::{ToolExecutionState, ToolReviewState};
     matches!(item.kind, TranscriptKind::Tool | TranscriptKind::Thinking)
-        && !item.has_attachments()
         && review_artifact::from_item(item).is_none()
         && !item.tool_review.as_ref().is_some_and(|review| {
             matches!(

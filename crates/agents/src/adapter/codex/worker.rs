@@ -3271,6 +3271,9 @@ fn codex_tool_end(params: &Value) -> Option<WorkerActivity> {
         .is_some_and(|status| matches!(status, "failed" | "declined"));
     let result = if kind == "imageGeneration" {
         Value::Array(tool::image_output(item))
+    } else if kind == "mcpToolCall" && item.pointer("/result/content").is_some_and(Value::is_array)
+    {
+        Value::Array(tool::mcp_output(item))
     } else if let Some(content) = item.pointer("/result/content").and_then(Value::as_array) {
         Value::Array(content.clone())
     } else if failed

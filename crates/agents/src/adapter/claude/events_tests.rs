@@ -1,6 +1,37 @@
 use super::*;
 
 #[test]
+fn tool_screenshots_reach_live_and_restored_conversations() {
+    let result = json!({"type":"tool_result","tool_use_id":"shot","content":[
+        {"type":"text","text":"App screenshot"},
+        {"type":"image","source":{"type":"base64","media_type":"image/png","data":"AQID"}},
+        {"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"BAUG"}}
+    ]});
+    let mut events = Events::default();
+    events.message(&json!({"type":"assistant","message":{"content":[{"type":"tool_use","id":"shot","name":"mcp__computer__capture","input":{}}]}}));
+    events.message(&json!({"type":"user","message":{"content":[result.clone()]}}));
+    let live_result = events
+        .pending
+        .iter()
+        .find_map(|event| match event {
+            WorkerEvent::Activity(WorkerActivity::ToolFinished { result, .. }) => {
+                Some(result.clone())
+            }
+            _ => None,
+        })
+        .unwrap();
+    let history = history_messages(&json!({"role":"user","content":[result]}));
+    assert_eq!(live_result["content"], history[0]["content"]);
+    for result in [live_result, history[0].clone()] {
+        let mut state = farcaster_conversation::ConversationState::default();
+        state.reduce(&json!({"type":"tool_execution_start","toolCallId":"shot","toolName":"mcp__computer__capture","args":{}}));
+        state.reduce(&json!({"type":"tool_execution_end","toolCallId":"shot","result":result,"isError":false}));
+        assert_eq!(state.items[0].images.len(), 2);
+        assert_eq!(state.items[0].tool_output, "App screenshot");
+    }
+}
+
+#[test]
 fn blocks_borrows_array_content_and_normalizes_strings() {
     let message = json!({"content":[{"type":"text","text":"answer"}]});
     let content = blocks(&message);

@@ -298,6 +298,13 @@ pub(super) fn web_search_query(item: &Value) -> Option<&str> {
         })
 }
 
+pub(super) fn mcp_output(item: &Value) -> Vec<Value> {
+    item.pointer("/result/content")
+        .and_then(Value::as_array)
+        .map(|blocks| farcaster_agent_protocol::normalize_tool_output(blocks).into_owned())
+        .unwrap_or_default()
+}
+
 // Keep native image storage fields out of the conversation/UI contracts.
 pub(super) fn image_output(item: &Value) -> Vec<Value> {
     use base64::Engine as _;

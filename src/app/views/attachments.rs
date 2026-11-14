@@ -149,6 +149,67 @@ pub(super) fn image_card(
     )
 }
 
+// Tool output gets a preview and a purpose caption; upload/composer cards stay compact.
+pub(super) fn image_thumbnail(
+    id: impl Into<gpui::ElementId>,
+    image: Arc<Image>,
+    caption: String,
+    open: impl Fn(&mut gpui::Window, &mut gpui::App) + 'static,
+) -> gpui::Stateful<Div> {
+    use crate::app::ui::primitives::AppTooltip as _;
+    use gpui::{InteractiveElement as _, StatefulInteractiveElement as _};
+
+    let format = image
+        .format()
+        .mime_type()
+        .strip_prefix("image/")
+        .unwrap_or("image")
+        .to_ascii_uppercase();
+    let detail = format!(
+        "{caption} · {format} · {}",
+        format_bytes(image.bytes().len())
+    );
+    let open = std::rc::Rc::new(open);
+    let click = open.clone();
+    card()
+        .id(id)
+        .w(theme().size(160.0))
+        .min_w_0()
+        .flex()
+        .flex_col()
+        .gap(theme().space.xs)
+        .cursor_pointer()
+        .tab_index(0)
+        .role(gpui::Role::Button)
+        .aria_label(format!("Open image: {caption}"))
+        .app_tooltip(detail)
+        .border(theme().border)
+        .border_color(gpui::transparent_black())
+        .focus_visible(|control| control.border_color(theme().colors.focus_border))
+        .hover(|control| control.text_color(theme().colors.accent))
+        .on_mouse_down(
+            gpui::MouseButton::Left,
+            crate::app::ui::primitives::preserve_pointer_focus,
+        )
+        .child(
+            img(image)
+                .w_full()
+                .h(theme().size(100.0))
+                .object_fit(ObjectFit::Contain),
+        )
+        .child(div().w_full().line_clamp(2).text_ellipsis().child(caption))
+        .on_click(move |_, window, cx| {
+            cx.stop_propagation();
+            click(window, cx);
+        })
+        .on_key_down(move |event, window, cx| {
+            if crate::app::ui::primitives::activates_button(event) {
+                cx.stop_propagation();
+                open(window, cx);
+            }
+        })
+}
+
 #[cfg(test)]
 #[path = "attachments_tests.rs"]
 mod tests;

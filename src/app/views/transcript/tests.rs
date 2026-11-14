@@ -1062,20 +1062,39 @@ fn html_presentation_actions_keep_the_entire_document() {
 }
 
 #[test]
-fn tool_images_remain_visible_outside_collapsed_activity_groups() {
+fn tool_images_share_activity_groups_and_refresh_on_arrival() {
     let mut image_tool = item(TranscriptKind::Tool, "Generate", "");
     Arc::make_mut(&mut image_tool).images = Arc::new(vec![Arc::new(
         conversation::EncodedImage::new(vec![1, 2, 3], "image/png").unwrap(),
     )]);
-    let items = PersistentVec::from_iter([
+    let mut items = PersistentVec::from_iter([
         item(TranscriptKind::Thinking, "", "working"),
         image_tool,
         item(TranscriptKind::Tool, "Read", ""),
     ]);
     let rows = project_rows(&items);
-    assert_eq!(rows.len(), 3);
-    assert!(
-        rows.iter()
-            .all(|row| matches!(row, TranscriptRow::Item { .. }))
+    assert_eq!(rows.len(), 1);
+    assert!(matches!(
+        rows[0],
+        TranscriptRow::ActivityGroup {
+            start: 0,
+            len: 3,
+            ..
+        }
+    ));
+    assert!(!resolved_expanded(rows[0], &items, &Default::default()));
+    assert!(estimated_row_height(rows[0], &items) > theme().size(100.0));
+
+    let previous = items.clone();
+    let mut changed = items[1].as_ref().clone();
+    let image = changed.images[0].clone();
+    Arc::make_mut(&mut changed.images).push(image);
+    items.set(1, Arc::new(changed));
+    let updated = update_rows_from(&rows, &previous, &items, Some(1));
+    assert_eq!(updated, project_rows(&items));
+    assert_eq!(updated[0].key(), rows[0].key());
+    assert_ne!(
+        updated[0], rows[0],
+        "an arriving image invalidates the group layout"
     );
 }

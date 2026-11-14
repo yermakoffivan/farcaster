@@ -91,3 +91,61 @@ fn sleep_projection_reports_the_wait_duration() {
     assert_eq!(projection.args, json!({"durationMs": 120000}));
     assert_eq!(projection.metadata.title.as_deref(), Some("Waiting 2m"));
 }
+
+#[test]
+fn mcp_output_recovers_serialized_image_results_and_keeps_order() {
+    let image = |data| json!({"type":"image","data":data,"mimeType":"image/png"});
+    let inner = json!({"content":[{"type":"text","text":"App screenshot"},image("first"),image("second"),{"type":"resource_link","uri":"file:///tmp/notes.html","name":"Notes"}],"isError":false});
+    let item = json!({"result":{"content":[
+        {"type":"text","text":"Before"},
+        {"type":"text","text":inner.to_string()},
+        image("direct"),
+        {"type":"text","text":"After"}
+    ]}});
+    assert_eq!(
+        mcp_output(&item),
+        vec![
+            json!({"type":"text","text":"Before"}),
+            json!({"type":"text","text":"App screenshot"}),
+            image("first"),
+            image("second"),
+            json!({"type":"resource_link","uri":"file:///tmp/notes.html","name":"Notes"}),
+            image("direct"),
+            json!({"type":"text","text":"After"}),
+        ]
+    );
+    assert_eq!(
+        item["result"]["content"][1]["text"],
+        inner.to_string(),
+        "native source stays intact"
+    );
+}
+
+#[test]
+fn mcp_output_preserves_plain_json_malformed_and_unknown_envelopes() {
+    for text in [
+        "not json",
+        "{bad json",
+        "[1,2,3]",
+        "{\"content\":\"plain document\"}",
+        "{\"content\":[{\"type\":\"image\",\"data\":\"bytes\"}]}",
+        "{\"content\":[{\"type\":\"unknown\"}]}",
+        "{\"content\":[{\"type\":\"text\",\"text\":\"literal\"}],\"other\":true}",
+    ] {
+        let blocks = json!([{"type":"text","text":text}]);
+        assert_eq!(
+            mcp_output(&json!({"result":{"content":blocks}})),
+            blocks.as_array().unwrap().clone()
+        );
+    }
+    let mut block = json!({"type":"text","text":"deep content"});
+    for _ in 0..8 {
+        block = json!({"type":"text","text":json!({"content":[block]}).to_string()});
+    }
+    let output = mcp_output(&json!({"result":{"content":[block]}}));
+    assert_eq!(output.len(), 1);
+    assert!(
+        output[0]["text"].as_str().unwrap().contains("content"),
+        "deep wrappers remain inspectable at the depth bound"
+    );
+}
