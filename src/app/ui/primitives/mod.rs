@@ -4,6 +4,7 @@ mod context_menu;
 mod delete;
 mod dialog;
 mod disclosure;
+mod dropdown;
 mod feedback;
 #[cfg(test)]
 mod focus_tests;
@@ -33,6 +34,7 @@ pub(crate) use context_menu::ContextMenuTrigger;
 pub(crate) use delete::DeleteButton;
 pub(crate) use dialog::{confirmation_modal, modal};
 pub(crate) use disclosure::{disclosure_detail, disclosure_title_row, tree_folder_row};
+pub(crate) use dropdown::{Dropdown, DropdownItem};
 pub(crate) use feedback::{FeedbackTone, feedback};
 pub(crate) use highlight::SyntaxKey;
 pub(crate) use icon::{AppIconSize, app_icon, icon_control};

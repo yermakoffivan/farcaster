@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::Cell, rc::Rc};
 
 use gpui::{
     Anchor, AnyElement, App, Bounds, Context, Element, ElementId, FocusHandle, Focusable as _,
@@ -76,6 +76,15 @@ impl Popover {
         callback: impl Fn(&bool, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_open_change = Some(Rc::new(callback));
+        self
+    }
+    fn measure_trigger_width(mut self, width: Option<Rc<Cell<Pixels>>>) -> Self {
+        if let Some(width) = width {
+            let trigger = self.trigger.take().expect("popover has a trigger");
+            self.trigger = Some(Box::new(move |open, press| {
+                measure_width(trigger(open, press), Some(width))
+            }));
+        }
         self
     }
     pub(crate) fn content<E: IntoElement>(
@@ -315,6 +324,7 @@ pub(crate) trait DropdownMenu:
             trigger: self,
             anchor,
             context: false,
+            match_trigger_width: false,
             build: Rc::new(build),
         }
     }
@@ -345,6 +355,7 @@ pub(crate) trait ContextMenuExt: DropdownMenu + gpui::ParentElement {
             trigger: self,
             anchor: Anchor::TopLeft,
             context: true,
+            match_trigger_width: false,
             build: Rc::new(build),
         }
     }
@@ -357,7 +368,14 @@ pub(crate) struct Menu<T: DropdownMenu> {
     trigger: T,
     anchor: Anchor,
     context: bool,
+    match_trigger_width: bool,
     build: MenuBuilder,
+}
+impl<T: DropdownMenu> Menu<T> {
+    pub(crate) fn match_trigger_width(mut self) -> Self {
+        self.match_trigger_width = true;
+        self
+    }
 }
 impl<T: DropdownMenu> Styled for Menu<T> {
     fn style(&mut self) -> &mut StyleRefinement {
@@ -377,7 +395,25 @@ struct MenuState {
 }
 
 impl<T: DropdownMenu> RenderOnce for Menu<T> {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let measured_width = if self.match_trigger_width {
+            let width = window
+                .use_keyed_state((self.id.clone(), "trigger-width"), cx, |_, _| {
+                    Rc::new(Cell::new(px(0.0)))
+                })
+                .read(cx)
+                .clone();
+            let measured = width.clone();
+            let build = self.build;
+            self.build = Rc::new(move |menu, window, cx| {
+                build(menu, window, cx)
+                    .min_w(width.get())
+                    .max_w(width.get())
+            });
+            Some(measured)
+        } else {
+            None
+        };
         if !popup::uses_native_popups(window, cx) {
             if self.context {
                 return gpui_component::menu::ContextMenuExt::context_menu(
@@ -387,7 +423,7 @@ impl<T: DropdownMenu> RenderOnce for Menu<T> {
                 .into_any_element();
             }
             let menu = gpui_component::menu::DropdownMenu::dropdown_menu_with_anchor(
-                FallbackTrigger(self.trigger),
+                FallbackTrigger(self.trigger, measured_width),
                 self.anchor,
                 move |menu, window, cx| (self.build)(menu, window, cx),
             );
@@ -401,6 +437,7 @@ impl<T: DropdownMenu> RenderOnce for Menu<T> {
             .anchor(self.anchor)
             .appearance(false)
             .trigger(self.trigger)
+            .measure_trigger_width(measured_width)
             .on_open_change({
                 let state = menu_state.clone();
                 move |open, window, cx| {
@@ -446,8 +483,74 @@ impl<T: DropdownMenu> RenderOnce for Menu<T> {
     }
 }
 
+fn measure_width(child: AnyElement, width: Option<Rc<Cell<Pixels>>>) -> AnyElement {
+    match width {
+        Some(width) => MeasuredWidth { child, width }.into_any_element(),
+        None => child,
+    }
+}
+
+struct MeasuredWidth {
+    child: AnyElement,
+    width: Rc<Cell<Pixels>>,
+}
+
+impl IntoElement for MeasuredWidth {
+    type Element = Self;
+    fn into_element(self) -> Self {
+        self
+    }
+}
+
+impl Element for MeasuredWidth {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        None
+    }
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        (self.child.request_layout(window, cx), ())
+    }
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        bounds: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.width.set(bounds.size.width);
+        self.child.prepaint(window, cx);
+    }
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.child.paint(window, cx);
+    }
+}
+
 #[derive(IntoElement)]
-struct FallbackTrigger<T: Selectable + gpui::InteractiveElement + IntoElement + 'static>(T);
+struct FallbackTrigger<T: Selectable + gpui::InteractiveElement + IntoElement + 'static>(
+    T,
+    Option<Rc<Cell<Pixels>>>,
+);
 impl<T: Styled + Selectable + gpui::InteractiveElement + IntoElement + 'static> Styled
     for FallbackTrigger<T>
 {
@@ -484,7 +587,8 @@ impl<T: Selectable + gpui::InteractiveElement + IntoElement + 'static> RenderOnc
     for FallbackTrigger<T>
 {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        ActionScope::new(move |target, _, _| {
+        let width = self.1;
+        let trigger = ActionScope::new(move |target, _, _| {
             let open = self.0.is_open();
             on_accessible_click(
                 Accessible(self.0).aria_expanded(open).0,
@@ -497,7 +601,8 @@ impl<T: Selectable + gpui::InteractiveElement + IntoElement + 'static> RenderOnc
                 },
             )
             .into_any_element()
-        })
+        });
+        measure_width(trigger.into_any_element(), width)
     }
 }
 

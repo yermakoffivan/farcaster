@@ -1,20 +1,19 @@
 use super::*;
 use crate::app::ui::primitives::AppTooltip as _;
-use crate::app::ui::primitives::DropdownMenu as _;
 mod layout;
 mod mechanics;
 use mechanics::{model_matches, option_button, option_row, picker_panel, result_list};
 mod worker_model_picker;
 use crate::app::ui::{
     assets::AppIcon,
-    primitives::{AppIconSize, ButtonTone, app_icon, button, dropdown_button},
+    primitives::{AppIconSize, ButtonTone, Dropdown, DropdownItem, app_icon, button},
     theme::theme,
 };
 use gpui::{
     InteractiveElement as _, IntoElement as _, ParentElement as _, StatefulInteractiveElement as _,
     Styled as _, div, prelude::FluentBuilder as _, px,
 };
-use gpui_component::{input::Input, menu::PopupMenuItem};
+use gpui_component::input::Input;
 
 pub(in crate::app) struct WorkerModelPicker {
     id: String,
@@ -357,31 +356,32 @@ impl FarcasterApp {
                     .p(theme().space.sm)
                     .child(div().text_color(theme().colors.muted).child("Provider"))
                     .child(
-                        dropdown_button(
+                        Dropdown::new(
                             "runtime-provider",
-                            provider.unwrap_or_else(|| "Provider".into()),
-                            ButtonTone::Quiet,
-                            providers.len() > 1,
-                        )
-                        .min_w(theme().size(0.0))
-                        .max_w(px((width - 100.0).max(0.0)))
-                        .overflow_hidden()
-                        .dropdown_menu(move |mut menu, _, _| {
-                            for provider in &providers {
-                                let entity = provider_entity.clone();
-                                let provider = provider.clone();
-                                menu = menu.item(PopupMenuItem::new(provider.clone()).on_click(
-                                    move |_, window, cx| {
+                            provider.clone().unwrap_or_else(|| "Provider".into()),
+                            providers
+                                .iter()
+                                .map(|candidate| {
+                                    let entity = provider_entity.clone();
+                                    let current = Some(candidate) == provider.as_ref();
+                                    let provider = candidate.clone();
+                                    DropdownItem::new(provider.clone(), move |window, cx| {
                                         let _ = entity.update(cx, |app, cx| {
                                             app.workspace.runtime_picker.provider =
                                                 Some(provider.clone());
                                             app.reset_model_picker_search(window, cx);
                                         });
-                                    },
-                                ));
-                            }
-                            menu
-                        }),
+                                    })
+                                    .selected(current)
+                                })
+                                .collect(),
+                        )
+                        .tone(ButtonTone::Quiet)
+                        .disabled(providers.len() < 2)
+                        .w(theme().size(180.0))
+                        .min_w(theme().size(0.0))
+                        .max_w(px((width - 100.0).max(0.0)))
+                        .overflow_hidden(),
                     ),
             )
             .child(

@@ -246,7 +246,7 @@ fn tone_icon_control(control: Stateful<Div>, tone: ButtonTone) -> Stateful<Div> 
     }
 }
 
-fn tone_button(button: Button, tone: ButtonTone) -> Button {
+pub(super) fn tone_button(button: Button, tone: ButtonTone) -> Button {
     match tone {
         ButtonTone::Accent => button.primary(),
         ButtonTone::Neutral => button.secondary(),

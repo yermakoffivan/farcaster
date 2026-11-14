@@ -1,18 +1,18 @@
-use crate::app::ui::primitives::DropdownMenu as _;
 use crate::app::ui::primitives::Popover;
 use gpui::{
     Animation, AnimationExt as _, AnyElement, FontWeight, InteractiveElement as _,
     IntoElement as _, ParentElement as _, Styled as _, Transformation, WeakEntity, div, percentage,
     prelude::FluentBuilder as _,
 };
-use gpui_component::menu::PopupMenuItem;
 
 use super::separator;
 use crate::app::FarcasterApp;
 use crate::{
     agents::SandboxState,
     app::ui::assets::AppIcon,
-    app::ui::primitives::{AppIconSize, ButtonTone, app_icon, dropdown_content_button},
+    app::ui::primitives::{
+        AppIconSize, ButtonTone, Dropdown, DropdownItem, app_icon, dropdown_content_button,
+    },
     app::ui::theme::theme,
     runtime::{ConfigurationStatus, HarnessAccessMode},
 };
@@ -167,26 +167,26 @@ fn access_selector(
                 ),
             )
         });
-    dropdown_content_button(
+    Dropdown::with_content(
         "harness-access",
         sandbox_state_tooltip(state, selected),
         content,
-        ButtonTone::Quiet,
-        supported.len() > 1,
+        supported
+            .iter()
+            .map(|&target| {
+                let entity = entity.clone();
+                DropdownItem::new(access_mode_label(target), move |_, cx| {
+                    let _ = entity.update(cx, |this, cx| this.set_access_mode(target, cx));
+                })
+                .icon(AppIcon::Shield)
+                .selected(target == selected)
+            })
+            .collect(),
     )
-    .dropdown_menu_with_anchor(gpui::Anchor::BottomLeft, move |mut menu, _, _| {
-        for &target in &supported {
-            let entity = entity.clone();
-            menu = menu.item(
-                PopupMenuItem::new(access_mode_label(target))
-                    .checked(target == selected)
-                    .on_click(move |_, _, cx| {
-                        let _ = entity.update(cx, |this, cx| this.set_access_mode(target, cx));
-                    }),
-            );
-        }
-        menu
-    })
+    .tone(ButtonTone::Quiet)
+    .anchor(gpui::Anchor::BottomLeft)
+    .accessibility_label(sandbox_state_tooltip(state, selected))
+    .disabled(supported.len() < 2)
     .into_any_element()
 }
 

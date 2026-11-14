@@ -11,7 +11,6 @@ use gpui_component::{
     Disableable as _, Sizable as _, Size,
     button::{Button, ButtonVariants as _},
     input::Input,
-    menu::PopupMenuItem,
 };
 
 use super::super::FarcasterApp;
@@ -19,8 +18,8 @@ use crate::{
     app::OVERLAY_KEY_CONTEXT,
     app::ui::assets::AppIcon,
     app::ui::primitives::{
-        AppIconSize, ButtonPressExt as _, ButtonTone, DropdownMenu as _, FeedbackTone, app_icon,
-        button, dropdown_content_button, feedback, modal, on_press_control,
+        AppIconSize, ButtonPressExt as _, ButtonTone, Dropdown, DropdownItem, FeedbackTone,
+        app_icon, button, feedback, modal, on_press_control,
     },
     app::ui::theme::theme,
     app::workspace::{
@@ -442,41 +441,24 @@ fn editor_setting(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyEl
             "Chat code capture uses embedded Neovim.",
         ))
         .child(
-            dropdown_content_button(
+            Dropdown::new(
                 "editor-choice",
-                format!("Editor: {}", selected.label()),
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(theme().space.xs)
-                    .child(app_icon(
-                        AppIcon::for_editor(selected),
-                        AppIconSize::Control,
-                    ))
-                    .child(selected.label()),
-                ButtonTone::Neutral,
-                true,
+                selected.label(),
+                available
+                    .into_iter()
+                    .map(|option| {
+                        let entity = entity.clone();
+                        DropdownItem::new(option.label(), move |_, cx| {
+                            let _ = entity.update(cx, |this, cx| this.select_editor(option, cx));
+                        })
+                        .icon(AppIcon::for_editor(option))
+                        .selected(option == selected)
+                    })
+                    .collect(),
             )
             .w(theme().size(180.0))
-            .debug_selector(|| "editor-choice".into())
-            .dropdown_menu_with_anchor(gpui::Anchor::TopLeft, move |menu, _, _| {
-                available.iter().fold(
-                    menu.min_w(theme().size(180.0))
-                        .check_side(gpui_component::Side::Right),
-                    |menu, &option| {
-                        let entity = entity.clone();
-                        menu.item(
-                            PopupMenuItem::new(option.label())
-                                .icon(AppIcon::for_editor(option))
-                                .checked(option == selected)
-                                .on_click(move |_, _, cx| {
-                                    let _ = entity
-                                        .update(cx, |this, cx| this.select_editor(option, cx));
-                                }),
-                        )
-                    },
-                )
-            }),
+            .accessibility_label(format!("Editor: {}", selected.label()))
+            .debug_selector(|| "editor-choice".into()),
         )
         .when(choice == EditorChoice::Custom, |section| {
             section

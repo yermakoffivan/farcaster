@@ -188,6 +188,8 @@ impl FarcasterApp {
         let keyboard_entity = entity.clone();
         let harness_entity = entity.clone();
         let provider_entity = entity.clone();
+        let harnesses_count = harnesses.len();
+        let providers_count = providers.len();
         let panel = picker_panel(
             width,
             height,
@@ -210,33 +212,33 @@ impl FarcasterApp {
                     .p(theme().space.sm)
                     .child(div().text_color(theme().colors.muted).child("Harness"))
                     .child(
-                        dropdown_button(
+                        Dropdown::new(
                             "worker-harness",
                             crate::agents::backend_display_name(worker.harness),
-                            ButtonTone::Quiet,
-                            harnesses.len() > 1,
-                        )
-                        .dropdown_menu(move |mut menu, _, _| {
-                            for harness in &harnesses {
-                                let harness = *harness;
-                                let entity = harness_entity.clone();
-                                menu = menu.item(
-                                    PopupMenuItem::new(crate::agents::backend_display_name(
-                                        harness,
-                                    ))
-                                    .on_click(
-                                        move |_, window, cx| {
+                            harnesses
+                                .into_iter()
+                                .map(|harness| {
+                                    let entity = harness_entity.clone();
+                                    DropdownItem::new(
+                                        crate::agents::backend_display_name(harness),
+                                        move |window, cx| {
                                             let _ = entity.update(cx, |app, cx| {
                                                 app.choose_worker_picker_harness(
                                                     harness, window, cx,
                                                 )
                                             });
                                         },
-                                    ),
-                                );
-                            }
-                            menu
-                        }),
+                                    )
+                                    .icon(AppIcon::for_harness(harness))
+                                    .selected(harness == worker.harness)
+                                })
+                                .collect(),
+                        )
+                        .tone(ButtonTone::Quiet)
+                        .disabled(harnesses_count < 2)
+                        .w(theme().size(180.0))
+                        .min_w(px(0.0))
+                        .max_w(px((width - 100.0).max(0.0))),
                     ),
             )
             .child(
@@ -249,21 +251,15 @@ impl FarcasterApp {
                     .pb(theme().space.sm)
                     .child(div().text_color(theme().colors.muted).child("Provider"))
                     .child(
-                        dropdown_button(
+                        Dropdown::new(
                             "worker-provider",
                             worker.provider.clone(),
-                            ButtonTone::Quiet,
-                            providers.len() > 1,
-                        )
-                        .min_w(px(0.0))
-                        .max_w(px((width - 100.0).max(0.0)))
-                        .overflow_hidden()
-                        .dropdown_menu(move |mut menu, _, _| {
-                            for provider in &providers {
-                                let provider = provider.clone();
-                                let entity = provider_entity.clone();
-                                menu = menu.item(PopupMenuItem::new(provider.clone()).on_click(
-                                    move |_, window, cx| {
+                            providers
+                                .into_iter()
+                                .map(|provider| {
+                                    let entity = provider_entity.clone();
+                                    let current = provider == worker.provider;
+                                    DropdownItem::new(provider.clone(), move |window, cx| {
                                         let _ = entity.update(cx, |app, cx| {
                                             app.choose_worker_picker_provider(
                                                 provider.clone(),
@@ -271,11 +267,17 @@ impl FarcasterApp {
                                                 cx,
                                             )
                                         });
-                                    },
-                                ));
-                            }
-                            menu
-                        }),
+                                    })
+                                    .selected(current)
+                                })
+                                .collect(),
+                        )
+                        .tone(ButtonTone::Quiet)
+                        .disabled(providers_count < 2)
+                        .w(theme().size(180.0))
+                        .min_w(px(0.0))
+                        .max_w(px((width - 100.0).max(0.0)))
+                        .overflow_hidden(),
                     ),
             )
             .child(

@@ -1,7 +1,7 @@
 use super::*;
 use crate::app::ui::primitives::DropdownMenu as _;
 use crate::app::{
-    ui::primitives::dropdown_content_button,
+    ui::primitives::{Dropdown, DropdownItem},
     workspace::worker_tasks::{
         WorkerModelEdit, WorkerProfileEdit, WorkerRouteChoice, WorkerRouteTarget, model_efforts,
     },
@@ -632,34 +632,36 @@ fn route_menu(
                 .child(field),
         )
         .child(
-            dropdown_content_button(
+            Dropdown::new(
                 (id, target.model),
-                format!("{}: {label}", id.trim_start_matches("worker-")),
-                div().flex_1().min_w_0().truncate().child(label),
-                ButtonTone::Neutral,
-                enabled && !choices.is_empty(),
-            )
-            .w_full()
-            .dropdown_menu_with_anchor(gpui::Anchor::TopLeft, move |menu, _, _| {
-                choices.iter().fold(
-                    menu.min_w(theme().size(180.0))
-                        .max_h(theme().size(320.0))
-                        .scrollable(true),
-                    |menu, (label, checked, choice)| {
+                label.clone(),
+                choices
+                    .into_iter()
+                    .map(|(label, checked, choice)| {
                         let entity = entity.clone();
-                        let choice = choice.clone();
-                        menu.item(
-                            PopupMenuItem::new(label.clone())
-                                .checked(*checked)
-                                .on_click(move |_, _, cx| {
-                                    let _ = entity.update(cx, |this, cx| {
-                                        this.select_worker_route(target, choice.clone(), cx)
-                                    });
-                                }),
-                        )
-                    },
-                )
-            }),
+                        let icon = match &choice {
+                            WorkerRouteChoice::Harness(harness) => {
+                                Some(AppIcon::for_harness(*harness))
+                            }
+                            _ => None,
+                        };
+                        let item = DropdownItem::new(label, move |_, cx| {
+                            let _ = entity.update(cx, |this, cx| {
+                                this.select_worker_route(target, choice.clone(), cx)
+                            });
+                        })
+                        .selected(checked);
+                        if let Some(icon) = icon {
+                            item.icon(icon)
+                        } else {
+                            item
+                        }
+                    })
+                    .collect(),
+            )
+            .accessibility_label(format!("{field}: {label}"))
+            .disabled(!enabled)
+            .w_full(),
         )
         .into_any_element()
 }
