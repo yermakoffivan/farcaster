@@ -6,7 +6,8 @@ mod mechanics;
 use mechanics::{model_matches, option_button, option_row, picker_panel, result_list};
 mod worker_model_picker;
 use crate::app::ui::{
-    primitives::{ButtonTone, button, dropdown_button},
+    assets::AppIcon,
+    primitives::{AppIconSize, ButtonTone, app_icon, button, dropdown_button},
     theme::theme,
 };
 use gpui::{
@@ -38,15 +39,33 @@ pub(in crate::app) struct RuntimePickerState {
 fn model_result_button(
     id: impl Into<gpui::ElementId>,
     label: String,
+    current: bool,
     highlighted: bool,
     on_press: impl Fn(&mut Window, &mut gpui::App) + 'static,
 ) -> impl gpui::IntoElement {
     button(id, "", ButtonTone::Quiet, true, on_press)
-        .accessibility_label(label.clone())
+        .accessibility_label(if current {
+            format!("{label}, current model")
+        } else {
+            label.clone()
+        })
         .app_tooltip(label.clone())
         .child(
             div()
-                .w_full()
+                .w(theme().size(16.0))
+                .flex_none()
+                .when(current, |marker| {
+                    marker
+                        .debug_selector(|| "runtime-model-checkmark".into())
+                        .child(
+                            app_icon(AppIcon::Check, AppIconSize::Control)
+                                .text_color(theme().colors.indicator),
+                        )
+                }),
+        )
+        .child(
+            div()
+                .flex_1()
                 .min_w(theme().size(0.0))
                 .truncate()
                 .child(label),
@@ -165,6 +184,7 @@ impl FarcasterApp {
             if self.workspace.runtime_picker.worker.is_none()
                 && let Some(selected) = self.snapshot.session_identity().model
             {
+                let selected = self.snapshot.catalog_model(selected);
                 self.workspace.runtime_picker.highlighted = self
                     .snapshot
                     .models
@@ -252,6 +272,13 @@ impl FarcasterApp {
         let selected = identity
             .model
             .map(|model| self.snapshot.catalog_model(model));
+        let uncatalogued_current = selected.filter(|selected| {
+            !self
+                .snapshot
+                .models
+                .iter()
+                .any(|model| model.provider == selected.provider && model.id == selected.id)
+        });
         let feedback = if self.snapshot.models.is_empty() {
             match &self.snapshot.configuration_status {
                 crate::runtime::ConfigurationStatus::Loading => "Loading models…".to_owned(),
@@ -293,6 +320,33 @@ impl FarcasterApp {
             },
         );
         panel
+            .when_some(uncatalogued_current, |panel, model| {
+                panel.child(
+                    div()
+                        .debug_selector(|| "runtime-current-model".into())
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .gap(theme().space.sm)
+                        .p(theme().space.sm)
+                        .child(
+                            app_icon(AppIcon::Check, AppIconSize::Control)
+                                .text_color(theme().colors.indicator),
+                        )
+                        .child(
+                            div()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .child(div().truncate().child(model.name.clone()))
+                                .child(
+                                    div()
+                                        .text_color(theme().colors.muted)
+                                        .child(format!("{} · Current", model.provider)),
+                                ),
+                        ),
+                )
+            })
             .child(
                 div()
                     .flex_none()
@@ -351,10 +405,10 @@ impl FarcasterApp {
                             *id == model.id && *provider == model.provider
                         });
                         let entity = rows_entity.clone();
-                        let label = format!("{}{}", if current { "✓ " } else { "" }, model.name);
                         model_result_button(
                             ("runtime-model", index),
-                            label,
+                            model.name.clone(),
+                            current,
                             index == highlighted,
                             move |window, cx| {
                                 let _ = entity.update(cx, |app, cx| {
@@ -411,3 +465,7 @@ impl FarcasterApp {
             .into_any_element()
     }
 }
+
+#[cfg(test)]
+#[path = "runtime_picker_tests.rs"]
+mod tests;

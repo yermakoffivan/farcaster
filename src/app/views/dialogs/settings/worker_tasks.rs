@@ -335,10 +335,10 @@ fn profile_detail(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyEl
                             .text_color(theme().colors.muted)
                             .child("Asks for a model on first use."),
                     )
-                    .child(div().flex().child(settings_action(
+                    .child(div().flex().child(button(
                         "worker-model-add-empty",
                         "Choose model",
-                        AppIcon::Plus,
+                        ButtonTone::Neutral,
                         !editing,
                         move |_, cx| {
                             let _ = add.update(cx, |this, cx| {

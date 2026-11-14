@@ -295,18 +295,10 @@ impl FarcasterApp {
                     move |row| {
                         let (index, choice) = models[row].clone();
                         let entity = rows_entity.clone();
-                        let label = format!(
-                            "{}{}",
-                            if selected_index == Some(index) {
-                                "✓ "
-                            } else {
-                                ""
-                            },
-                            choice.name
-                        );
                         model_result_button(
                             ("worker-model", row),
-                            label,
+                            choice.name,
+                            selected_index == Some(index),
                             row == highlighted,
                             move |_, cx| {
                                 let _ = entity.update(cx, |app, cx| {
