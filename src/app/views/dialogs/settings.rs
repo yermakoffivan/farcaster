@@ -11,6 +11,7 @@ use gpui_component::{
     Disableable as _, Sizable as _, Size,
     button::{Button, ButtonVariants as _},
     input::Input,
+    menu::PopupMenuItem,
 };
 
 use super::super::FarcasterApp;
@@ -18,8 +19,8 @@ use crate::{
     app::OVERLAY_KEY_CONTEXT,
     app::ui::assets::AppIcon,
     app::ui::primitives::{
-        AppIconSize, ButtonPressExt as _, ButtonTone, FeedbackTone, app_icon, button, feedback,
-        modal, on_press_control,
+        AppIconSize, ButtonPressExt as _, ButtonTone, DropdownMenu as _, FeedbackTone, app_icon,
+        button, dropdown_content_button, feedback, modal, on_press_control,
     },
     app::ui::theme::theme,
     app::workspace::{
@@ -441,20 +442,41 @@ fn editor_setting(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyEl
             "Chat code capture uses embedded Neovim.",
         ))
         .child(
-            div()
-                .flex()
-                .gap(theme().space.xs)
-                .flex_wrap()
-                .children(available.into_iter().map(|option| {
-                    editor_option(
-                        format!("editor-{}", option.as_str()),
-                        option.label(),
-                        AppIcon::for_editor(option),
-                        option,
-                        selected,
-                        entity.clone(),
-                    )
-                })),
+            dropdown_content_button(
+                "editor-choice",
+                format!("Editor: {}", selected.label()),
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(theme().space.xs)
+                    .child(app_icon(
+                        AppIcon::for_editor(selected),
+                        AppIconSize::Control,
+                    ))
+                    .child(selected.label()),
+                ButtonTone::Neutral,
+                true,
+            )
+            .w(theme().size(180.0))
+            .debug_selector(|| "editor-choice".into())
+            .dropdown_menu_with_anchor(gpui::Anchor::TopLeft, move |menu, _, _| {
+                available.iter().fold(
+                    menu.min_w(theme().size(180.0))
+                        .check_side(gpui_component::Side::Right),
+                    |menu, &option| {
+                        let entity = entity.clone();
+                        menu.item(
+                            PopupMenuItem::new(option.label())
+                                .icon(AppIcon::for_editor(option))
+                                .checked(option == selected)
+                                .on_click(move |_, _, cx| {
+                                    let _ = entity
+                                        .update(cx, |this, cx| this.select_editor(option, cx));
+                                }),
+                        )
+                    },
+                )
+            }),
         )
         .when(choice == EditorChoice::Custom, |section| {
             section
@@ -463,27 +485,6 @@ fn editor_setting(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyEl
                     "Quote paths with spaces. Applies to new editor sessions.",
                 ))
                 .child(Input::new(&app.settings.editor_command_input))
-        })
-        .into_any_element()
-}
-
-fn editor_option(
-    id: String,
-    label: &'static str,
-    icon: AppIcon,
-    option: EditorChoice,
-    selected: EditorChoice,
-    entity: WeakEntity<FarcasterApp>,
-) -> AnyElement {
-    Button::new(id)
-        .icon(icon)
-        .label(label)
-        .with_size(Size::Small)
-        .toggled(option == selected)
-        .when(option == selected, |button| button.primary())
-        .when(option != selected, |button| button.secondary())
-        .on_press(true, move |_, cx| {
-            let _ = entity.update(cx, |this, cx| this.select_editor(option, cx));
         })
         .into_any_element()
 }
