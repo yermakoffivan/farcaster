@@ -1,6 +1,9 @@
 use super::*;
 use crate::app::{
-    ui::theme::{Appearance, Colors, LengthKey, ThemeToken, length_label, token_label},
+    ui::theme::{
+        Appearance, LengthKey, MONO_FONT_FAMILY, SyntaxKey, ThemeDefinition, ThemeToken,
+        length_label, token_label,
+    },
     workspace::theme_settings::ThemeSettings,
 };
 use gpui::SharedString;
@@ -129,78 +132,91 @@ fn theme_list(themes: &ThemeSettings, entity: WeakEntity<FarcasterApp>) -> AnyEl
                         })
                 })
                 .flex()
+                .flex_wrap()
                 .items_center()
                 .justify_between()
                 .gap(theme().space.sm)
                 .child(
                     div()
                         .min_w_0()
+                        .flex_1()
                         .flex()
                         .flex_col()
                         .gap(theme().space.xs)
                         .child(
                             div()
-                                .flex()
-                                .items_center()
-                                .gap(theme().space.sm)
-                                .child(
-                                    div()
-                                        .w(theme().size(180.0))
-                                        .flex_none()
-                                        .truncate()
-                                        .text_size(theme().type_scale.body)
-                                        .text_color(theme().colors.text)
-                                        .child(definition.name.clone()),
-                                )
-                                .child(theme_palette(index, definition.colors)),
+                                .truncate()
+                                .text_size(theme().type_scale.body)
+                                .text_color(theme().colors.text)
+                                .child(definition.name.clone()),
                         )
                         .child(
                             div()
                                 .text_size(theme().type_scale.caption)
                                 .text_color(theme().colors.muted)
-                                .child(if custom { "Your theme" } else { "Built in" }),
+                                .child(if active {
+                                    "Active"
+                                } else if custom {
+                                    "Your theme"
+                                } else {
+                                    "Built in"
+                                }),
                         ),
                 )
-                .when(active, |row| {
-                    row.child(
-                        div()
-                            .flex_none()
-                            .text_size(theme().type_scale.caption)
-                            .text_color(theme().colors.indicator)
-                            .child("Active"),
-                    )
-                }),
+                .child(theme_preview(index, &definition)),
         );
     }
     list.into_any_element()
 }
 
-fn theme_palette(index: usize, colors: Colors) -> gpui::Stateful<gpui::Div> {
+fn theme_preview(index: usize, definition: &ThemeDefinition) -> gpui::Div {
+    let colors = definition.colors;
     div()
-        .id(("theme-palette", index))
+        .debug_selector(move || format!("theme-preview-{index}"))
+        .w(theme().size(260.0))
+        .max_w_full()
         .flex()
+        .flex_col()
         .flex_none()
-        .gap(theme().size(2.0))
-        .app_tooltip("Background · Text · Accent · Links · Success · Warning · Error")
-        .children(
-            [
-                colors.canvas,
-                colors.text,
-                colors.accent,
-                colors.link,
-                colors.success,
-                colors.warning,
-                colors.error,
-            ]
-            .into_iter()
-            .map(|color| {
-                div()
-                    .size(theme().size(12.0))
-                    .flex_none()
-                    .border_1()
-                    .border_color(theme().colors.border)
-                    .bg(color)
-            }),
+        .gap(theme().space.xs)
+        .p(theme().space.sm)
+        .rounded(theme().size(4.0))
+        .border_1()
+        .border_color(colors.border)
+        .bg(colors.canvas)
+        .text_size(theme().type_scale.caption)
+        .text_color(colors.text)
+        .child(
+            div()
+                .flex()
+                .justify_between()
+                .gap(theme().space.sm)
+                .child("Ready to review.")
+                .child(div().text_color(colors.link).child("Changes")),
+        )
+        .child(
+            div()
+                .flex()
+                .font_family(MONO_FONT_FAMILY)
+                .px(theme().space.sm)
+                .py(theme().space.xs)
+                .rounded(theme().size(3.0))
+                .bg(colors.panel)
+                .children(
+                    [
+                        ("let ", SyntaxKey::keyword),
+                        ("ready", SyntaxKey::primary),
+                        (" = ", SyntaxKey::operator),
+                        ("true", SyntaxKey::boolean),
+                        (";", SyntaxKey::punctuation),
+                    ]
+                    .into_iter()
+                    .map(|(text, token)| {
+                        div()
+                            .text_color(definition.color(ThemeToken::Syntax(token)))
+                            .child(text)
+                    }),
+                ),
         )
 }
 
