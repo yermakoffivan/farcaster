@@ -1,3 +1,4 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 pub(in crate::app) mod agents;
 mod background_jobs;
 pub(crate) use crate::app::ui::change_tree;
@@ -151,7 +152,7 @@ impl FarcasterApp {
         let key_app = app.clone();
         let main_panel = run_panel.clone();
         let key_panel = run_panel.clone();
-        let control = agents::conversation_row("run-panel-main-agent", false)
+        let control = agents::conversation_row("run-panel-main-agent", is_selected)
             .track_focus(focus)
             .aria_selected(is_selected)
             .h(theme().controls.icon_button)
@@ -163,6 +164,7 @@ impl FarcasterApp {
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(theme().colors.muted)
             .line_height(theme().type_scale.line_body)
+            .selection_style(is_selected)
             .debug_selector(|| "run-panel-main-agent".into())
             .aria_label("Show main agent transcript")
             .on_mouse_down(

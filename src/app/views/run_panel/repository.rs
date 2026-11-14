@@ -8,6 +8,7 @@ use super::{
         change_status_label, display_change_path, file_path_labels, group_title, repository_row_id,
     },
 };
+use crate::app::ui::primitives::SelectionStyle as _;
 #[cfg(test)]
 use crate::repository::{BackendPreference, RepositoryKind};
 use crate::{
@@ -335,7 +336,7 @@ impl FarcasterApp {
                 .items_center()
                 .gap(theme().space.xs)
                 .hover(|row| row.bg(theme().colors.highlight))
-                .when(selected, |row| row.bg(theme().colors.highlight))
+                .selection_style(selected)
                 .focus(|row| {
                     row.bg(theme().colors.highlight).shadow(
                         crate::app::ui::primitives::focus_outline(theme().colors.focus_border),
@@ -433,9 +434,9 @@ impl FarcasterApp {
                             .items_center()
                             .justify_center()
                             .when(selected, |checkbox| {
-                                checkbox.bg(theme().colors.accent).child(
+                                checkbox.selection_style(true).child(
                                     app_icon(AppIcon::Check, AppIconSize::Inline)
-                                        .text_color(theme().colors.canvas),
+                                        .text_color(theme().colors.selected_text()),
                                 )
                             }),
                     ),

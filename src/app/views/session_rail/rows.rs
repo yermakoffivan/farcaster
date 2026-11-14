@@ -1,5 +1,6 @@
 use crate::agents::Backend;
 use crate::app::ui::primitives::ContextMenuExt as _;
+use crate::app::ui::primitives::SelectionStyle as _;
 use crate::{app::session::status::run_status_label, runtime::RunStatus};
 use std::{
     path::{Path, PathBuf},
@@ -163,17 +164,11 @@ impl RenderOnce for SessionRow {
             .px(super::rail_inset())
             .rounded(theme().radius)
             .group(action_group.clone())
-            .bg(if selected {
-                theme().colors.highlight
-            } else {
-                theme().colors.panel
-            })
+            .bg(theme().colors.panel)
+            .selection_style(selected)
             .hover(|row| row.bg(theme().colors.highlight))
-            .when(selected || color.is_some(), |row| {
-                row.child(line_indicator(
-                    IndicatorEdge::Leading,
-                    color.unwrap_or(theme().colors.indicator),
-                ))
+            .when_some(color, |row, color| {
+                row.child(line_indicator(IndicatorEdge::Leading, color))
             })
             .focus(|row| {
                 row.shadow(crate::app::ui::primitives::focus_outline(

@@ -1,3 +1,4 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 use gpui::{
     App, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce, Role,
     StatefulInteractiveElement as _, Styled as _, WeakEntity, Window, div,
@@ -173,8 +174,7 @@ fn suggestion_menu(id: &'static str, label: &'static str) -> gpui::Stateful<gpui
 }
 
 fn selected_row(row: gpui::Stateful<gpui::Div>) -> gpui::Stateful<gpui::Div> {
-    row.bg(theme().colors.highlight)
-        .text_color(theme().colors.indicator)
+    row.selection_style(true)
 }
 
 fn fill_file_mention(

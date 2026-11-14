@@ -6,9 +6,7 @@ use crate::app::{
         WorkerModelEdit, WorkerProfileEdit, WorkerRouteChoice, WorkerRouteTarget, model_efforts,
     },
 };
-use gpui_component::{
-    Disableable as _, Selectable as _, button::ButtonCustomVariant, menu::PopupMenuItem,
-};
+use gpui_component::{Disableable as _, button::ButtonCustomVariant, menu::PopupMenuItem};
 
 pub(super) fn render(
     app: &FarcasterApp,
@@ -105,9 +103,7 @@ fn profile_button(
         .child(div().w_full().truncate().child(label))
         .selected(selected)
         .toggled(selected)
-        .when(selected, |button| {
-            button.text_color(theme().colors.indicator)
-        })
+        .selection_style(selected)
         .on_press(enabled, on_press)
 }
 

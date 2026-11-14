@@ -1,3 +1,4 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 use crate::{
     app::ui::assets::AppIcon,
     app::ui::layout::{TRAFFIC_LIGHT_INSET, shows_left_inline},
@@ -287,24 +288,12 @@ fn surface_control(
             .h_full()
             .rounded_none()
             .text_color(theme().colors.muted)
-            .hover(move |control| {
-                control.bg(theme().colors.highlight).text_color(if active {
-                    theme().colors.indicator
-                } else {
-                    theme().colors.text
-                })
+            .hover(|control| {
+                control
+                    .bg(theme().colors.highlight)
+                    .text_color(theme().colors.text)
             })
-            .when(active, |control| {
-                control.text_color(theme().colors.indicator).child(
-                    div()
-                        .absolute()
-                        .bottom_0()
-                        .left_0()
-                        .right_0()
-                        .h(theme().size(2.0))
-                        .bg(theme().colors.indicator),
-                )
-            })
+            .selection_style(active)
             .child(app_icon(icon, AppIconSize::Control))
             .child(div().text_size(theme().type_scale.caption).child(caption)),
         move |window, cx| {

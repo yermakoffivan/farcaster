@@ -1,3 +1,4 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 use gpui::{
     Div, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _, Role,
     StatefulInteractiveElement as _, Styled as _, div, prelude::FluentBuilder as _, px,
@@ -142,11 +143,8 @@ fn render_plan_row(
         .on_click(move |_, _, cx| entity.update(cx, |this, cx| this.select_node(number, cx)))
         .aria_selected(is_selected)
         .rounded(theme().size(6.0))
-        .bg(if is_selected {
-            theme().colors.highlight
-        } else {
-            theme().colors.panel
-        })
+        .bg(theme().colors.panel)
+        .selection_style(is_selected)
         .hover(|style| style.bg(theme().colors.highlight))
         .px(theme().space.sm)
         .py(theme().space.sm)

@@ -1,3 +1,4 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 use gpui::{
     Div, Entity, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
     StatefulInteractiveElement as _, Styled as _, div, prelude::FluentBuilder as _, px,
@@ -129,11 +130,8 @@ impl WorkGraphBoardView {
                                         .aria_selected(is_selected)
                                         .rounded(theme().size(4.0))
                                         .p(theme().space.sm)
-                                        .bg(if is_selected {
-                                            theme().colors.highlight
-                                        } else {
-                                            theme().colors.canvas
-                                        })
+                                        .bg(theme().colors.canvas)
+                                        .selection_style(is_selected)
                                         .hover(|style| style.bg(theme().colors.highlight))
                                         .on_click(move |_, _, cx| {
                                             entity.update(cx, |this, cx| {

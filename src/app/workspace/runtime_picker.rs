@@ -1,12 +1,12 @@
 use super::*;
-use crate::app::ui::primitives::AppTooltip as _;
+use crate::app::ui::primitives::{AppTooltip as _, SelectionStyle as _};
 mod layout;
 mod mechanics;
 use mechanics::{model_matches, option_button, option_row, picker_panel, result_list};
 mod worker_model_picker;
 use crate::app::ui::{
     assets::AppIcon,
-    primitives::{AppIconSize, ButtonTone, Dropdown, DropdownItem, app_icon, button},
+    primitives::{ButtonTone, Dropdown, DropdownItem, button},
     theme::theme,
 };
 use gpui::{
@@ -43,25 +43,14 @@ fn model_result_button(
     on_press: impl Fn(&mut Window, &mut gpui::App) + 'static,
 ) -> impl gpui::IntoElement {
     button(id, "", ButtonTone::Quiet, true, on_press)
+        .toggled(current)
+        .selection_style(current)
         .accessibility_label(if current {
             format!("{label}, current model")
         } else {
             label.clone()
         })
         .app_tooltip(label.clone())
-        .child(
-            div()
-                .w(theme().size(16.0))
-                .flex_none()
-                .when(current, |marker| {
-                    marker
-                        .debug_selector(|| "runtime-model-checkmark".into())
-                        .child(
-                            app_icon(AppIcon::Check, AppIconSize::Control)
-                                .text_color(theme().colors.indicator),
-                        )
-                }),
-        )
         .child(
             div()
                 .flex_1()
@@ -74,7 +63,12 @@ fn model_result_button(
         .overflow_hidden()
         .h(theme().size(32.0))
         .justify_start()
-        .when(highlighted, |row| row.bg(theme().colors.surface))
+        .when(current, |row| {
+            row.debug_selector(|| "runtime-model-current".into())
+        })
+        .when(highlighted && !current, |row| {
+            row.bg(theme().colors.surface)
+        })
 }
 
 impl FarcasterApp {
@@ -328,16 +322,18 @@ impl FarcasterApp {
                         .items_center()
                         .gap(theme().space.sm)
                         .p(theme().space.sm)
-                        .child(
-                            app_icon(AppIcon::Check, AppIconSize::Control)
-                                .text_color(theme().colors.indicator),
-                        )
+                        .selection_style(true)
                         .child(
                             div()
                                 .min_w_0()
                                 .flex()
                                 .flex_col()
-                                .child(div().truncate().child(model.name.clone()))
+                                .child(
+                                    div()
+                                        .truncate()
+                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .child(model.name.clone()),
+                                )
                                 .child(
                                     div()
                                         .text_color(theme().colors.muted)
@@ -443,24 +439,44 @@ impl FarcasterApp {
                 )
             })
             .when(!service_tiers.is_empty(), |panel| {
-                panel.child(option_row("Service tier").flex_none().child(
-                    div().flex().flex_wrap().gap(theme().space.xs).children(
-                        service_tiers.iter().enumerate().map(|(index, tier)| {
-                            let entity = entity.clone();
-                            let tier = tier.clone();
-                            option_button(
-                                ("runtime-service-tier", index),
-                                tier.clone(),
-                                selected_tier == Some(tier.as_str()),
-                                move |_, cx| {
-                                    let _ = entity.update(cx, |app, cx| {
-                                        app.set_service_tier(tier.clone(), cx)
-                                    });
-                                },
-                            )
-                        }),
+                panel.child(
+                    option_row("Service tier").flex_none().child(
+                        div()
+                            .flex()
+                            .flex_wrap()
+                            .gap(theme().space.xs)
+                            .when(selected_tier.is_none(), |row| {
+                                row.child(
+                                    div()
+                                        .id("runtime-service-tier-default")
+                                        .debug_selector(|| "runtime-service-tier-default".into())
+                                        .role(gpui::Role::Label)
+                                        .aria_label("Service tier: Default")
+                                        .h_6()
+                                        .px_2()
+                                        .flex()
+                                        .items_center()
+                                        .rounded(theme().radius.max(theme().size(4.0)))
+                                        .selection_style(true)
+                                        .child("Default"),
+                                )
+                            })
+                            .children(service_tiers.iter().enumerate().map(|(index, tier)| {
+                                let entity = entity.clone();
+                                let tier = tier.clone();
+                                option_button(
+                                    ("runtime-service-tier", index),
+                                    tier.clone(),
+                                    selected_tier == Some(tier.as_str()),
+                                    move |_, cx| {
+                                        let _ = entity.update(cx, |app, cx| {
+                                            app.set_service_tier(tier.clone(), cx)
+                                        });
+                                    },
+                                )
+                            })),
                     ),
-                ))
+                )
             })
             .into_any_element()
     }

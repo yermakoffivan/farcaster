@@ -1,3 +1,4 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 use std::{collections::BTreeSet, path::Path};
 
 use gpui::{
@@ -144,9 +145,7 @@ pub(in crate::app::views) fn render(
                                 .gap(theme().space.xs)
                                 .rounded(theme().radius)
                                 .text_size(theme().type_scale.caption)
-                                .when(selected_path == Some(&location.path), |row| {
-                                    row.bg(theme().colors.highlight)
-                                })
+                                .selection_style(selected_path == Some(&location.path))
                                 .child(crate::app::ui::grid::icon_slot().child(file_icon(path)))
                                 .child(
                                     div().min_w_0().flex_1().text_ellipsis().child(
@@ -198,9 +197,7 @@ pub(in crate::app::views) fn render(
                                 )
                                 .p(theme().space.xs)
                                 .rounded(theme().radius)
-                                .when(inspecting == Some(index), |row| {
-                                    row.bg(theme().colors.highlight)
-                                })
+                                .selection_style(inspecting == Some(index))
                                 .child(div().text_color(theme().colors.muted).child(
                                     if selected == Some(index) {
                                         format!("{range} · Last opened here")

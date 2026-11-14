@@ -7,7 +7,6 @@ use crate::app::{
     workspace::theme_settings::ThemeSettings,
 };
 use gpui::SharedString;
-use gpui_component::Selectable as _;
 
 pub(super) fn render(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyElement {
     let themes = &app.settings.themes;
@@ -108,7 +107,10 @@ fn theme_list(themes: &ThemeSettings, entity: WeakEntity<FarcasterApp>) -> AnyEl
                 .py(theme().space.sm)
                 .border_1()
                 .border_color(gpui::rgba(0x00000000))
-                .when(active, |row| row.bg(theme().colors.highlight))
+                .selection_style(active)
+                .when(active, |row| {
+                    row.border_color(theme().colors.selected_border())
+                })
                 .when(editable, |row| {
                     row.role(gpui::Role::Button)
                         .aria_label(definition.name.clone())
@@ -173,7 +175,8 @@ fn theme_preview(index: usize, definition: &ThemeDefinition) -> gpui::Div {
     let colors = definition.colors;
     div()
         .debug_selector(move || format!("theme-preview-{index}"))
-        .w(theme().size(260.0))
+        .font_weight(gpui::FontWeight::NORMAL)
+        .w_full()
         .max_w_full()
         .flex()
         .flex_col()
@@ -323,9 +326,7 @@ fn theme_editor(
                         },
                     )
                     .selected(selected)
-                    .when(selected, |button| {
-                        button.text_color(theme().colors.indicator)
-                    })
+                    .selection_style(selected)
                     .toggled(selected)
                 }),
         ),

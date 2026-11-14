@@ -1,4 +1,6 @@
 use crate::app::ui::primitives::AppTooltip as _;
+use crate::app::ui::primitives::SelectionStyle as _;
+use gpui_component::Selectable as _;
 mod appearance;
 mod harness_profiles;
 mod harness_sign_in;
@@ -97,12 +99,8 @@ pub(in crate::app::views) fn render(
                                         .w_auto()
                                         .px(theme().space.sm)
                                         .aria_selected(selected)
-                                        .text_color(if selected {
-                                            theme().colors.indicator
-                                        } else {
-                                            theme().colors.muted
-                                        })
-                                        .when(selected, |tab| tab.bg(theme().colors.highlight))
+                                        .text_color(theme().colors.muted)
+                                        .selection_style(selected)
                                         .child(page.label()),
                                         move |window, cx| {
                                             let _ = select.update(cx, |this, cx| {
@@ -290,8 +288,9 @@ fn voice_setting(
                         .with_size(Size::Small)
                         .toggled(enabled)
                         .disabled(!available)
-                        .when(enabled, |button| button.primary())
-                        .when(!enabled, |button| button.secondary())
+                        .secondary()
+                        .selected(enabled)
+                        .selection_style(enabled)
                         .on_press(available, move |_, cx| {
                             let _ = entity.update(cx, FarcasterApp::toggle_settings_voice);
                         }),
@@ -493,8 +492,9 @@ fn toggle_setting(
                 .label(if enabled { "On" } else { "Off" })
                 .with_size(Size::Small)
                 .toggled(enabled)
-                .when(enabled, |button| button.primary())
-                .when(!enabled, |button| button.secondary())
+                .secondary()
+                .selected(enabled)
+                .selection_style(enabled)
                 .on_press(true, move |_, cx| {
                     let _ = entity.update(cx, toggle);
                 }),

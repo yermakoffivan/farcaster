@@ -1,3 +1,4 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 use std::rc::Rc;
 
 use crate::app::ui::primitives::AppTooltip as _;
@@ -138,41 +139,25 @@ fn harness_picker(
             let entity = entity.clone();
             let id = format!("import-harness-{harness}");
             let label = agents::backend_display_name(harness);
-            button(
-                id,
-                label,
-                if active {
-                    ButtonTone::Accent
-                } else {
-                    ButtonTone::Neutral
-                },
-                true,
-                move |_, cx| {
-                    let _ = entity.update(cx, |this, cx| {
-                        this.select_session_import_harness(harness, cx);
-                    });
-                },
-            )
+            button(id, label, ButtonTone::Quiet, true, move |_, cx| {
+                let _ = entity.update(cx, |this, cx| {
+                    this.select_session_import_harness(harness, cx);
+                });
+            })
+            .toggled(active)
+            .selection_style(active)
         }))
         .children(profiles.into_iter().map(|profile| {
             let active = selected_profile == Some(profile.id.as_str());
             let entity = entity.clone();
             let id = format!("import-profile-{}", profile.id);
-            button(
-                id,
-                profile.name,
-                if active {
-                    ButtonTone::Accent
-                } else {
-                    ButtonTone::Neutral
-                },
-                true,
-                move |_, cx| {
-                    let _ = entity.update(cx, |this, cx| {
-                        this.select_session_import_profile(profile.backend, profile.id.clone(), cx);
-                    });
-                },
-            )
+            button(id, profile.name, ButtonTone::Quiet, true, move |_, cx| {
+                let _ = entity.update(cx, |this, cx| {
+                    this.select_session_import_profile(profile.backend, profile.id.clone(), cx);
+                });
+            })
+            .toggled(active)
+            .selection_style(active)
         }))
 }
 
@@ -277,28 +262,14 @@ fn candidate_row(
         .flex()
         .items_center()
         .gap(theme().space.sm)
-        .bg(if checked {
-            theme().colors.highlight
-        } else {
-            theme().colors.panel
-        })
+        .bg(theme().colors.panel)
+        .selection_style(checked)
         .hover(move |row| {
             row.bg(if checked {
                 theme().colors.highlight
             } else {
                 theme().colors.surface
             })
-        })
-        .when(checked, |row| {
-            row.child(
-                div()
-                    .absolute()
-                    .left_0()
-                    .top(theme().space.xs)
-                    .bottom(theme().space.xs)
-                    .w(theme().size(2.0))
-                    .bg(theme().colors.indicator),
-            )
         })
         .focus(|row| {
             row.border(theme().border)
@@ -415,9 +386,9 @@ fn selection_checkbox(
                 .items_center()
                 .justify_center()
                 .when(selected, |checkbox| {
-                    checkbox.bg(theme().colors.accent).child(
+                    checkbox.selection_style(true).child(
                         app_icon(AppIcon::Check, AppIconSize::Inline)
-                            .text_color(theme().colors.canvas),
+                            .text_color(theme().colors.selected_text()),
                     )
                 }),
         )

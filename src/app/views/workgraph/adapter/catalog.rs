@@ -1,3 +1,4 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 mod detail;
 
 use gpui::{
@@ -354,11 +355,8 @@ impl WorkGraphBoardView {
             })
             .aria_selected(self.catalog.selected == Some(number))
             .rounded(theme().size(6.0))
-            .bg(if self.catalog.selected == Some(number) {
-                theme().colors.highlight
-            } else {
-                theme().colors.panel
-            })
+            .bg(theme().colors.panel)
+            .selection_style(self.catalog.selected == Some(number))
             .hover(|style| style.bg(theme().colors.highlight))
             .px(theme().space.sm)
             .py(theme().space.sm)

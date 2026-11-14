@@ -1,8 +1,9 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 use crate::{app::session::status::run_status_label, runtime::RunStatus};
 use gpui::{
     AnyElement, App, AppContext as _, CursorStyle, InteractiveElement as _, IntoElement,
     ParentElement as _, RenderOnce, Role, StatefulInteractiveElement as _, Styled as _, WeakEntity,
-    Window, div, prelude::FluentBuilder as _,
+    Window, div,
 };
 
 use super::{
@@ -16,10 +17,7 @@ use super::{
 };
 use crate::{
     app::FarcasterApp,
-    app::ui::primitives::{
-        AppTooltip as _, DeleteButton, IndicatorEdge, ReorderPosition, ReorderTargetExt as _,
-        line_indicator,
-    },
+    app::ui::primitives::{AppTooltip as _, DeleteButton, ReorderPosition, ReorderTargetExt as _},
     app::ui::theme::theme,
     sessions::DraftSession,
 };
@@ -134,18 +132,9 @@ impl RenderOnce for DraftRow {
                     .px(super::rail_inset())
                     .rounded(theme().radius)
                     .group(action_group.clone())
-                    .bg(if selected {
-                        theme().colors.highlight
-                    } else {
-                        theme().colors.panel
-                    })
+                    .bg(theme().colors.panel)
+                    .selection_style(selected)
                     .hover(|row| row.bg(theme().colors.highlight))
-                    .when(selected, |row| {
-                        row.child(line_indicator(
-                            IndicatorEdge::Leading,
-                            theme().colors.indicator,
-                        ))
-                    })
                     .focus(|row| {
                         row.shadow(crate::app::ui::primitives::focus_outline(
                             theme().colors.indicator,

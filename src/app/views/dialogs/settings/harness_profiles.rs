@@ -1,5 +1,4 @@
 use super::*;
-use gpui_component::Selectable as _;
 
 pub(super) fn render(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyElement {
     let profiles = app.settings.harness_profiles.list().unwrap_or_default();
@@ -131,9 +130,7 @@ fn add_form(app: &FarcasterApp, entity: WeakEntity<FarcasterApp>) -> AnyElement 
             )
             .selected(selected)
             .toggled(selected)
-            .when(selected, |button| {
-                button.text_color(theme().colors.indicator)
-            }),
+            .selection_style(selected),
         );
     }
     div()

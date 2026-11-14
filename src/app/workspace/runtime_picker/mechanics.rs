@@ -1,4 +1,5 @@
 use super::*;
+use gpui_component::Selectable as _;
 
 pub(super) fn model_matches(id: &str, name: &str, query: &str) -> bool {
     format!("{id} {name}").to_lowercase().contains(query)
@@ -122,17 +123,10 @@ pub(super) fn option_button(
     selected: bool,
     on_press: impl Fn(&mut Window, &mut gpui::App) + 'static,
 ) -> impl gpui::IntoElement {
-    button(
-        id,
-        label,
-        if selected {
-            ButtonTone::Accent
-        } else {
-            ButtonTone::Quiet
-        },
-        true,
-        on_press,
-    )
+    button(id, label, ButtonTone::Quiet, true, on_press)
+        .selected(selected)
+        .toggled(selected)
+        .selection_style(selected)
 }
 
 #[cfg(test)]

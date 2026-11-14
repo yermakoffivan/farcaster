@@ -1,4 +1,5 @@
 use crate::app::ui::primitives::DropdownMenu as _;
+use crate::app::ui::primitives::SelectionStyle as _;
 use std::cell::RefCell;
 
 use gpui::{
@@ -69,11 +70,8 @@ impl FarcasterApp {
         let filter = ContextMenuTrigger::new(
             "project-filter-menu",
             icon_control("project-filter-button", filter_label)
-                .text_color(if selected.is_some() {
-                    theme().colors.indicator
-                } else {
-                    theme().colors.muted
-                })
+                .text_color(theme().colors.muted)
+                .selection_style(selected.is_some())
                 .hover(|control| control.bg(theme().colors.highlight))
                 .child(app_icon(AppIcon::FunnelSimple, AppIconSize::Control))
                 .into_any_element(),

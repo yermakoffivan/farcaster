@@ -81,6 +81,51 @@ pub(crate) struct Colors {
     pub terminal_green: Rgba,
 }
 
+impl Colors {
+    // Choice selection stays muted; action and status colors have other roles.
+    pub(crate) fn selected_fill(self) -> Rgba {
+        self.highlight
+    }
+
+    pub(crate) fn selected_text(self) -> Rgba {
+        self.text
+    }
+
+    pub(crate) fn selected_border(self) -> Rgba {
+        self.focus_border
+    }
+
+    pub(crate) fn selection_background(self) -> Rgba {
+        // Text keeps its foreground during selection. Use the strongest tint
+        // that preserves readable text, including on light themes.
+        let text = relative_luminance(self.text);
+        for step in (0..=45).rev() {
+            let fill = self.canvas.blend(self.link.alpha(step as f32 / 100.0));
+            let background = relative_luminance(fill);
+            if (text.max(background) + 0.05) / (text.min(background) + 0.05) >= 4.5 {
+                return fill;
+            }
+        }
+        self.canvas
+    }
+}
+
+fn relative_luminance(color: Rgba) -> f64 {
+    [color.r, color.g, color.b]
+        .into_iter()
+        .zip([0.2126, 0.7152, 0.0722])
+        .map(|(channel, weight)| {
+            let channel = f64::from(channel);
+            weight
+                * if channel <= 0.04045 {
+                    channel / 12.92
+                } else {
+                    ((channel + 0.055) / 1.055).powf(2.4)
+                }
+        })
+        .sum()
+}
+
 macro_rules! color_keys {
     ($($required:ident),* $(,)? ; $($optional:ident),* $(,)?) => {
         #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -696,7 +741,7 @@ pub(crate) fn install_component_theme(cx: &mut App) {
         button_primary_foreground: colors.canvas.into(),
         button_primary_hover: colors.accent_hover.into(),
         button_secondary: colors.surface.into(),
-        button_secondary_active: colors.highlight.into(),
+        button_secondary_active: colors.selected_fill().into(),
         button_secondary_foreground: colors.text.into(),
         button_secondary_hover: colors.highlight.into(),
         button_success: colors.success.into(),
@@ -736,8 +781,8 @@ pub(crate) fn install_component_theme(cx: &mut App) {
         link_active: colors.link.into(),
         link_hover: colors.link.into(),
         list: colors.panel.into(),
-        list_active: colors.highlight.into(),
-        list_active_border: colors.focus_border.into(),
+        list_active: colors.selected_fill().into(),
+        list_active_border: colors.selected_border().into(),
         list_even: colors.surface.into(),
         list_head: colors.panel.into(),
         list_hover: colors.highlight.into(),
@@ -745,27 +790,27 @@ pub(crate) fn install_component_theme(cx: &mut App) {
         muted_foreground: colors.muted.into(),
         popover: colors.panel.into(),
         popover_foreground: colors.text.into(),
-        primary: colors.accent.into(),
-        primary_active: colors.accent_active.into(),
-        primary_foreground: colors.canvas.into(),
-        primary_hover: colors.accent_hover.into(),
+        primary: colors.selected_fill().into(),
+        primary_active: colors.selected_fill().into(),
+        primary_foreground: colors.selected_text().into(),
+        primary_hover: colors.selected_fill().into(),
         progress_bar: colors.indicator.into(),
-        ring: colors.focus_border.into(),
+        ring: colors.indicator.into(),
         scrollbar: component.transparent,
         scrollbar_thumb: colors.focus_border.into(),
         scrollbar_thumb_hover: colors.muted.into(),
         secondary: colors.surface.into(),
-        secondary_active: colors.highlight.into(),
+        secondary_active: colors.selected_fill().into(),
         secondary_foreground: colors.text.into(),
         secondary_hover: colors.highlight.into(),
-        selection: colors.highlight.into(),
+        selection: colors.selection_background().into(),
         sidebar: colors.panel.into(),
-        sidebar_accent: colors.highlight.into(),
-        sidebar_accent_foreground: colors.text.into(),
+        sidebar_accent: colors.selected_fill().into(),
+        sidebar_accent_foreground: colors.selected_text().into(),
         sidebar_border: colors.border.into(),
         sidebar_foreground: colors.text.into(),
-        sidebar_primary: colors.highlight.into(),
-        sidebar_primary_foreground: colors.text.into(),
+        sidebar_primary: colors.selected_fill().into(),
+        sidebar_primary_foreground: colors.selected_text().into(),
         skeleton: colors.surface.into(),
         slider_bar: colors.indicator.into(),
         slider_thumb: colors.canvas.into(),
@@ -773,17 +818,17 @@ pub(crate) fn install_component_theme(cx: &mut App) {
         success_foreground: colors.canvas.into(),
         success_hover: colors.success.into(),
         success_active: colors.success.into(),
-        switch: colors.focus_border.into(),
-        switch_thumb: colors.canvas.into(),
+        switch: colors.surface.into(),
+        switch_thumb: colors.selected_text().into(),
         tab: colors.surface.into(),
-        tab_active: colors.highlight.into(),
-        tab_active_foreground: colors.text.into(),
+        tab_active: colors.selected_fill().into(),
+        tab_active_foreground: colors.selected_text().into(),
         tab_bar: colors.panel.into(),
         tab_bar_segmented: colors.panel.into(),
         tab_foreground: colors.text.into(),
         table: colors.panel.into(),
-        table_active: colors.highlight.into(),
-        table_active_border: colors.focus_border.into(),
+        table_active: colors.selected_fill().into(),
+        table_active_border: colors.selected_border().into(),
         table_even: colors.surface.into(),
         table_head: colors.panel.into(),
         table_head_foreground: colors.text.into(),

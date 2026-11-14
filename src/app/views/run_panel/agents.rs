@@ -1,7 +1,8 @@
+use crate::app::ui::primitives::SelectionStyle as _;
 use gpui::{
     AnyElement, Div, ElementId, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement as _, Role, ScrollAnchor, StatefulInteractiveElement as _, Styled as _,
-    WeakEntity, div, prelude::FluentBuilder as _,
+    WeakEntity, div,
 };
 
 use super::super::super::FarcasterApp;
@@ -29,28 +30,14 @@ pub(super) fn conversation_row(id: impl Into<ElementId>, selected: bool) -> gpui
         .pr_0()
         .py(theme().size(4.0))
         .rounded(theme().radius)
-        .bg(if selected {
-            theme().colors.highlight
-        } else {
-            theme().colors.inspector
-        })
+        .bg(theme().colors.inspector)
+        .selection_style(selected)
         .hover(move |row| {
             row.bg(if selected {
                 theme().colors.highlight
             } else {
                 theme().colors.surface
             })
-        })
-        .when(selected, |row| {
-            row.child(
-                div()
-                    .absolute()
-                    .left_0()
-                    .top(theme().space.xs)
-                    .bottom(theme().space.xs)
-                    .w(theme().size(2.0))
-                    .bg(theme().colors.indicator),
-            )
         })
         .focus(|row| {
             row.shadow(crate::app::ui::primitives::focus_outline(
