@@ -153,7 +153,7 @@ fn access_selector(
             SandboxState::Active(mode) => access_mode_color(mode),
             _ => theme().colors.muted,
         })
-        .child(app_icon(AppIcon::Shield, AppIconSize::Inline))
+        .child(app_icon(access_mode_icon(selected), AppIconSize::Inline))
         .child(sandbox_state_label(state, selected))
         .when(matches!(state, SandboxState::Pending(_)), |this| {
             this.child(app_icon(AppIcon::Hourglass, AppIconSize::Inline))
@@ -178,7 +178,7 @@ fn access_selector(
                 DropdownItem::new(access_mode_label(target), move |_, cx| {
                     let _ = entity.update(cx, |this, cx| this.set_access_mode(target, cx));
                 })
-                .icon(AppIcon::Shield)
+                .icon(access_mode_icon(target))
                 .selected(target == selected)
             })
             .collect(),
@@ -210,6 +210,14 @@ fn sandbox_state_tooltip(state: SandboxState, selected: HarnessAccessMode) -> St
             format!("Applying {}…", access_mode_label(selected))
         }
         _ => format!("Sandbox settings: {}", sandbox_state_label(state, selected)),
+    }
+}
+
+const fn access_mode_icon(mode: HarnessAccessMode) -> AppIcon {
+    match mode {
+        HarnessAccessMode::Sandboxed => AppIcon::Shield,
+        HarnessAccessMode::Auto => AppIcon::GearSix,
+        HarnessAccessMode::Full => AppIcon::WarningCircle,
     }
 }
 
